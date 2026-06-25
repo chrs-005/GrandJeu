@@ -1,0 +1,281 @@
+/* ── Reset & base ───────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --text: #111827;
+  --text-muted: #6b7280;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --secondary: #6b7280;
+  --secondary-hover: #4b5563;
+  --admin-color: #7c3aed;
+  --success: #059669;
+  --success-bg: #d1fae5;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --danger-bg: #fee2e2;
+  --info-bg: #dbeafe;
+  --info-color: #1d4ed8;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Layout helpers ─────────────────────────────────── */
+.page-center {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  box-shadow: var(--shadow);
+  width: 100%;
+}
+
+/* ── Typography ─────────────────────────────────────── */
+.logo-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.5px;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.hint {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Form elements ─────────────────────────────────── */
+.field {
+  margin-bottom: 16px;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 5px;
+  color: var(--text);
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--surface);
+  outline: none;
+  transition: border-color .15s;
+  resize: vertical;
+}
+
+.field input:focus,
+.field textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+}
+
+.field input:disabled,
+.field textarea:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* ── Buttons ────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 18px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  transition: background .15s, opacity .15s;
+  text-decoration: none;
+}
+
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+
+.btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover:not(:disabled) { background: #e9e9eb; }
+
+.btn-admin { background: var(--admin-color); color: #fff; }
+.btn-admin:hover:not(:disabled) { background: #6d28d9; }
+
+.btn-ghost { background: transparent; color: var(--text-muted); }
+.btn-ghost:hover:not(:disabled) { color: var(--text); background: var(--bg); }
+
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+
+.btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* ── Alerts ─────────────────────────────────────────── */
+.alert {
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 12px;
+  line-height: 1.45;
+}
+
+.alert-error { background: var(--danger-bg); color: var(--danger); }
+.alert-success { background: var(--success-bg); color: var(--success); }
+.alert-info { background: var(--info-bg); color: var(--info-color); }
+
+/* ── Badges ─────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.badge-success { background: var(--success-bg); color: var(--success); }
+.badge-error { background: var(--danger-bg); color: var(--danger); }
+.badge-neutral { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+.badge-user { background: #dbeafe; color: #1d4ed8; }
+.badge-admin { background: #ede9fe; color: var(--admin-color); }
+
+/* ── Info rows ──────────────────────────────────────── */
+.info-section {
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+}
+
+.info-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.info-value {
+  font-size: 13px;
+  font-weight: 500;
+  max-width: 60%;
+  text-align: right;
+  word-break: break-all;
+}
+
+/* ── Result box ─────────────────────────────────────── */
+.result-box {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--success-bg);
+  border-radius: var(--radius);
+  border: 1px solid #a7f3d0;
+}
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.result-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.result-num {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--success);
+  line-height: 1;
+}
+
+.result-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── Loading screen ─────────────────────────────────── */
+.loading-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-muted);
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Mobile tweaks ──────────────────────────────────── */
+@media (max-width: 480px) {
+  .card { padding: 20px 16px; }
+  .logo-title { font-size: 20px; }
+}

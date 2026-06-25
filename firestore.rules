@@ -1,0 +1,44 @@
+rules_version = '2';
+
+// IMPORTANT: The first admin must be created manually.
+// Steps:
+//   1. A user signs up and their document is created with role = "user".
+//   2. Go to Firebase Console → Firestore → users/{uid} → edit role to "admin".
+//   3. That user can then use the admin API endpoints.
+// Admin role changes must NEVER be made from client-side code.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── User documents ──────────────────────────────────────────────────────
+    match /users/{uid} {
+      // A logged-in user can read their own document
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // A logged-in user can create their own document, but only with role "user"
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.role == 'user'
+        && request.resource.data.uid == uid;
+
+      // A logged-in user can update their own document but cannot change their role
+      allow update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.role == resource.data.role; // role is immutable from client
+
+      // Deletion of user documents is not allowed from client
+      allow delete: if false;
+
+      // ── Push subscriptions (subcollection) ─────────────────────────────
+      match /pushSubscriptions/{subId} {
+        // Users can manage their own push subscriptions
+        allow read, create, update, delete: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // Deny everything else by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
