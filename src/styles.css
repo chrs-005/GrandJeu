@@ -228,7 +228,7 @@ html, body, #root {
 
 .result-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
   margin-top: 8px;
 }
@@ -250,6 +250,99 @@ html, body, #root {
   font-size: 12px;
   color: var(--text-muted);
   margin-top: 2px;
+}
+
+/* Location map */
+.location-map {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #e5e7eb;
+  isolation: isolate;
+}
+
+.map-tile {
+  position: absolute;
+  width: 256px;
+  height: 256px;
+  user-select: none;
+  pointer-events: none;
+}
+
+.map-marker {
+  position: absolute;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  transform: translate(-50%, -100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px 999px 999px 4px;
+  rotate: -45deg;
+  background: var(--admin-color);
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,.28);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.map-marker::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: inherit;
+  background: rgba(255,255,255,.12);
+}
+
+.map-marker {
+  line-height: 1;
+}
+
+.map-marker span {
+  position: relative;
+  z-index: 1;
+  rotate: 45deg;
+}
+
+.map-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  background: rgba(255,255,255,.55);
+}
+
+.location-list {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.location-list-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.location-list-row:last-child {
+  border-bottom: 0;
+}
+
+.location-list-row span {
+  color: var(--text-muted);
 }
 
 /* ── Loading screen ─────────────────────────────────── */

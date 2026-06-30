@@ -11,6 +11,7 @@ import {
   getExistingSubscription,
   sendLocalTestNotification,
 } from '../services/notifications';
+import { isLocationSupported, saveLocation } from '../services/location';
 
 export default function UserApp() {
   const { currentUser, userRole, logout } = useAuth();
@@ -24,7 +25,13 @@ export default function UserApp() {
   const [notifStatus, setNotifStatus] = useState('');
   const [notifError, setNotifError] = useState('');
   const [enabling, setEnabling] = useState(false);
+  const [locationSharing, setLocationSharing] = useState(false);
+  const [locationStatus, setLocationStatus] = useState('');
+  const [locationError, setLocationError] = useState('');
+  const [lastLocationAt, setLastLocationAt] = useState(null);
   const channelRef = useRef(null);
+  const locationWatchRef = useRef(null);
+  const lastLocationSaveRef = useRef(0);
 
   useEffect(() => {
     getExistingSubscription().then((sub) => setHasSubscription(!!sub));
@@ -36,6 +43,14 @@ export default function UserApp() {
       channelRef.current = ch;
       return () => ch.close();
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (locationWatchRef.current !== null && isLocationSupported()) {
+        navigator.geolocation.clearWatch(locationWatchRef.current);
+      }
+    };
   }, []);
 
   async function handleEnableNotifications() {
@@ -70,6 +85,60 @@ export default function UserApp() {
     }
   }
 
+  function handleEnableLocation() {
+    setLocationError('');
+    setLocationStatus('');
+
+    if (!isLocationSupported()) {
+      setLocationError('Location is not supported on this device.');
+      return;
+    }
+
+    if (locationWatchRef.current !== null) {
+      setLocationStatus('Location sharing is already active.');
+      return;
+    }
+
+    locationWatchRef.current = navigator.geolocation.watchPosition(
+      async (position) => {
+        const now = Date.now();
+        if (now - lastLocationSaveRef.current < 10000) return;
+
+        lastLocationSaveRef.current = now;
+        try {
+          await saveLocation(currentUser, position);
+          setLocationSharing(true);
+          setLastLocationAt(new Date());
+          setLocationStatus('Location shared.');
+          setLocationError('');
+        } catch (err) {
+          setLocationError(err.message || 'Failed to save location.');
+        }
+      },
+      (err) => {
+        setLocationSharing(false);
+        setLocationError(err.message || 'Location permission failed.');
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 15000,
+      }
+    );
+
+    setLocationSharing(true);
+    setLocationStatus('Waiting for GPS position...');
+  }
+
+  function handleDisableLocation() {
+    if (locationWatchRef.current !== null && isLocationSupported()) {
+      navigator.geolocation.clearWatch(locationWatchRef.current);
+      locationWatchRef.current = null;
+    }
+    setLocationSharing(false);
+    setLocationStatus('Location sharing stopped.');
+  }
+
   async function handleLogout() {
     await logout();
     navigate('/login');
@@ -101,6 +170,26 @@ export default function UserApp() {
             <span className={`badge ${userRole === 'admin' ? 'badge-admin' : 'badge-user'}`}>
               {userRole || 'user'}
             </span>
+          </div>
+        </section>
+
+        <section className="info-section">
+          <h3 className="section-title">Location Sharing</h3>
+          <div className="info-row">
+            <span className="info-label">GPS</span>
+            <span className={`badge ${isLocationSupported() ? 'badge-success' : 'badge-error'}`}>
+              {isLocationSupported() ? 'Supported' : 'Not supported'}
+            </span>
+          </div>
+          <div className="info-row">
+            <span className="info-label">Sharing</span>
+            <span className={`badge ${locationSharing ? 'badge-success' : 'badge-neutral'}`}>
+              {locationSharing ? 'On' : 'Off'}
+            </span>
+          </div>
+          <div className="info-row">
+            <span className="info-label">Last update</span>
+            <span className="info-value">{lastLocationAt ? lastLocationAt.toLocaleTimeString() : 'None'}</span>
           </div>
         </section>
 
@@ -146,6 +235,8 @@ export default function UserApp() {
         {/* Status / error */}
         {notifStatus && <div className="alert alert-success">{notifStatus}</div>}
         {notifError && <div className="alert alert-error">{notifError}</div>}
+        {locationStatus && <div className="alert alert-success">{locationStatus}</div>}
+        {locationError && <div className="alert alert-error">{locationError}</div>}
 
         {/* Action buttons */}
         <div className="btn-group">
@@ -163,6 +254,13 @@ export default function UserApp() {
             disabled={permission !== 'granted'}
           >
             Send local test notification
+          </button>
+
+          <button
+            className="btn btn-secondary"
+            onClick={locationSharing ? handleDisableLocation : handleEnableLocation}
+          >
+            {locationSharing ? 'Stop location sharing' : 'Share my location'}
           </button>
 
           {userRole === 'admin' && (
