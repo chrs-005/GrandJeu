@@ -128,6 +128,10 @@ export default function Admin() {
                 <span className="result-label">Sent</span>
               </div>
               <div className="result-item">
+                <span className="result-num">{result.found ?? 0}</span>
+                <span className="result-label">Found</span>
+              </div>
+              <div className="result-item">
                 <span className="result-num" style={{ color: 'var(--warning)' }}>{result.failed ?? 0}</span>
                 <span className="result-label">Failed</span>
               </div>

@@ -150,7 +150,7 @@ async function handlePost(req, res) {
     })
   );
 
-  return res.status(200).json({ ok: true, sent, failed, removed });
+  return res.status(200).json({ ok: true, found: subscriptionDocs.length, sent, failed, removed });
 }
 
 export default async function handler(req, res) {
