@@ -345,6 +345,53 @@ html, body, #root {
   color: var(--text-muted);
 }
 
+/* Step challenge */
+.step-control-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.challenge-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.challenge-status span {
+  color: var(--text-muted);
+}
+
+.step-results {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.step-result-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.step-result-row:last-child {
+  border-bottom: 0;
+}
+
+.step-result-row span {
+  color: var(--text-muted);
+}
+
 /* ── Loading screen ─────────────────────────────────── */
 .loading-screen {
   min-height: 100vh;
@@ -371,4 +418,5 @@ html, body, #root {
 @media (max-width: 480px) {
   .card { padding: 20px 16px; }
   .logo-title { font-size: 20px; }
+  .step-control-row { grid-template-columns: 1fr; }
 }

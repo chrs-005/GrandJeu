@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { fetchPlayerLocations } from '../services/location';
+import { fetchStepChallenge, startStepChallenge } from '../services/steps';
 
 const MAP_ZOOM = 16;
 const TILE_SIZE = 256;
@@ -115,6 +116,12 @@ export default function Admin() {
   const [locations, setLocations] = useState([]);
   const [locationError, setLocationError] = useState('');
   const [locationsLoading, setLocationsLoading] = useState(false);
+  const [stepDuration, setStepDuration] = useState(120);
+  const [stepChallenge, setStepChallenge] = useState(null);
+  const [stepResults, setStepResults] = useState([]);
+  const [stepStarting, setStepStarting] = useState(false);
+  const [stepError, setStepError] = useState('');
+  const [stepStatus, setStepStatus] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -137,6 +144,31 @@ export default function Admin() {
 
     loadLocations();
     const interval = setInterval(loadLocations, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadStepChallenge() {
+      if (!currentUser) return;
+      try {
+        const data = await fetchStepChallenge(currentUser);
+        if (!cancelled) {
+          setStepChallenge(data.challenge);
+          setStepResults(data.results || []);
+          setStepError('');
+        }
+      } catch (err) {
+        if (!cancelled) setStepError(err.message || 'Failed to load step challenge.');
+      }
+    }
+
+    loadStepChallenge();
+    const interval = setInterval(loadStepChallenge, 5000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -181,6 +213,24 @@ export default function Admin() {
     }
   }
 
+  async function handleStartStepChallenge() {
+    setStepError('');
+    setStepStatus('');
+    setStepStarting(true);
+    try {
+      const data = await startStepChallenge(currentUser, Number(stepDuration));
+      setStepChallenge(data.challenge);
+      setStepResults([]);
+      setStepStatus(
+        `Step challenge started. Push sent to ${data.push?.sent ?? 0}/${data.push?.found ?? 0} subscribed devices.`
+      );
+    } catch (err) {
+      setStepError(err.message || 'Failed to start step challenge.');
+    } finally {
+      setStepStarting(false);
+    }
+  }
+
   async function handleLogout() {
     await logout();
     navigate('/login');
@@ -215,6 +265,54 @@ export default function Admin() {
             {!locations.length && (
               <div className="location-list-row">
                 <span>{locationsLoading ? 'Loading locations...' : 'No players are sharing yet.'}</span>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="info-section">
+          <h3 className="section-title">Step Challenge</h3>
+          <div className="step-control-row">
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label htmlFor="step-duration">Duration seconds</label>
+              <input
+                id="step-duration"
+                min="15"
+                max="900"
+                step="15"
+                type="number"
+                value={stepDuration}
+                onChange={(e) => setStepDuration(e.target.value)}
+                disabled={stepStarting}
+              />
+            </div>
+            <button className="btn btn-primary" onClick={handleStartStepChallenge} disabled={stepStarting}>
+              {stepStarting ? 'Starting...' : 'Start step challenge'}
+            </button>
+          </div>
+
+          {stepChallenge && (
+            <div className="challenge-status">
+              <strong>{stepChallenge.active ? 'Active' : 'Finished'}</strong>
+              <span>
+                {new Date(stepChallenge.startAtMs).toLocaleTimeString()} - {new Date(stepChallenge.endAtMs).toLocaleTimeString()}
+              </span>
+            </div>
+          )}
+
+          {stepStatus && <div className="alert alert-success">{stepStatus}</div>}
+          {stepError && <div className="alert alert-error">{stepError}</div>}
+
+          <div className="step-results">
+            {stepResults.map((result, index) => (
+              <div className="step-result-row" key={result.uid}>
+                <span>{index + 1}. {result.username}</span>
+                <strong>{result.steps} steps</strong>
+              </div>
+            ))}
+            {!stepResults.length && (
+              <div className="step-result-row">
+                <span>No step results yet.</span>
               </div>
             )}
           </div>

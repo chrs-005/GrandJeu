@@ -12,6 +12,12 @@ import {
   sendLocalTestNotification,
 } from '../services/notifications';
 import { isLocationSupported, saveLocation } from '../services/location';
+import {
+  fetchStepChallenge,
+  isMotionSupported,
+  requestMotionPermission,
+  saveStepResult,
+} from '../services/steps';
 
 export default function UserApp() {
   const { currentUser, userRole, logout } = useAuth();
@@ -29,9 +35,19 @@ export default function UserApp() {
   const [locationStatus, setLocationStatus] = useState('');
   const [locationError, setLocationError] = useState('');
   const [lastLocationAt, setLastLocationAt] = useState(null);
+  const [motionEnabled, setMotionEnabled] = useState(false);
+  const [stepChallenge, setStepChallenge] = useState(null);
+  const [steps, setSteps] = useState(0);
+  const [stepStatus, setStepStatus] = useState('');
+  const [stepError, setStepError] = useState('');
   const channelRef = useRef(null);
   const locationWatchRef = useRef(null);
   const lastLocationSaveRef = useRef(0);
+  const stepChallengeRef = useRef(null);
+  const stepsRef = useRef(0);
+  const lastStepAtRef = useRef(0);
+  const lastStepSaveAtRef = useRef(0);
+  const motionEnabledRef = useRef(false);
 
   useEffect(() => {
     getExistingSubscription().then((sub) => setHasSubscription(!!sub));
@@ -52,6 +68,87 @@ export default function UserApp() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadStepChallenge() {
+      if (!currentUser) return;
+      try {
+        const data = await fetchStepChallenge(currentUser);
+        if (cancelled) return;
+
+        const incoming = data.challenge;
+        setStepChallenge((previous) => {
+          if (incoming?.id && incoming.id !== previous?.id) {
+            const nextSteps = data.ownResult || 0;
+            stepsRef.current = nextSteps;
+            setSteps(nextSteps);
+            setStepStatus(incoming.active ? 'Step challenge loaded. Get ready.' : 'Latest step challenge loaded.');
+          }
+          stepChallengeRef.current = incoming;
+          return incoming;
+        });
+        setStepError('');
+      } catch (err) {
+        if (!cancelled) setStepError(err.message || 'Failed to load step challenge.');
+      }
+    }
+
+    loadStepChallenge();
+    const interval = setInterval(loadStepChallenge, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
+    motionEnabledRef.current = motionEnabled;
+  }, [motionEnabled]);
+
+  useEffect(() => {
+    if (!motionEnabled) return undefined;
+
+    function saveCurrentSteps(challengeId) {
+      const now = Date.now();
+      if (now - lastStepSaveAtRef.current < 5000) return;
+      lastStepSaveAtRef.current = now;
+      saveStepResult(currentUser, challengeId, stepsRef.current).catch((err) => {
+        setStepError(err.message || 'Failed to save steps.');
+      });
+    }
+
+    function handleMotion(event) {
+      if (!motionEnabledRef.current) return;
+
+      const challenge = stepChallengeRef.current;
+      const now = Date.now();
+      if (!challenge?.active || now < challenge.startAtMs || now > challenge.endAtMs) return;
+
+      const acceleration = event.accelerationIncludingGravity || event.acceleration;
+      if (!acceleration) return;
+
+      const x = acceleration.x || 0;
+      const y = acceleration.y || 0;
+      const z = acceleration.z || 0;
+      const magnitude = Math.sqrt(x * x + y * y + z * z);
+
+      if (magnitude > 13.2 && now - lastStepAtRef.current > 330) {
+        lastStepAtRef.current = now;
+        setSteps((previous) => {
+          const next = previous + 1;
+          stepsRef.current = next;
+          return next;
+        });
+        setStepStatus('Counting steps...');
+        saveCurrentSteps(challenge.id);
+      }
+    }
+
+    window.addEventListener('devicemotion', handleMotion);
+    return () => window.removeEventListener('devicemotion', handleMotion);
+  }, [currentUser, motionEnabled]);
 
   async function handleEnableNotifications() {
     setNotifError('');
@@ -139,6 +236,18 @@ export default function UserApp() {
     setLocationStatus('Location sharing stopped.');
   }
 
+  async function handleEnableMotion() {
+    setStepError('');
+    setStepStatus('');
+    try {
+      await requestMotionPermission();
+      setMotionEnabled(true);
+      setStepStatus('Step sensor enabled. Steps will count during the next active challenge.');
+    } catch (err) {
+      setStepError(err.message || 'Failed to enable step sensor.');
+    }
+  }
+
   async function handleLogout() {
     await logout();
     navigate('/login');
@@ -193,6 +302,32 @@ export default function UserApp() {
           </div>
         </section>
 
+        <section className="info-section">
+          <h3 className="section-title">Step Challenge</h3>
+          <div className="info-row">
+            <span className="info-label">Motion sensor</span>
+            <span className={`badge ${isMotionSupported() ? 'badge-success' : 'badge-error'}`}>
+              {isMotionSupported() ? 'Supported' : 'Not supported'}
+            </span>
+          </div>
+          <div className="info-row">
+            <span className="info-label">Sensor enabled</span>
+            <span className={`badge ${motionEnabled ? 'badge-success' : 'badge-neutral'}`}>
+              {motionEnabled ? 'Yes' : 'No'}
+            </span>
+          </div>
+          <div className="info-row">
+            <span className="info-label">Challenge</span>
+            <span className={`badge ${stepChallenge?.active ? 'badge-success' : 'badge-neutral'}`}>
+              {stepChallenge?.active ? 'Active' : 'Waiting'}
+            </span>
+          </div>
+          <div className="info-row">
+            <span className="info-label">Steps</span>
+            <span className="info-value">{steps}</span>
+          </div>
+        </section>
+
         {/* Push support status */}
         <section className="info-section">
           <h3 className="section-title">Push Notification Status</h3>
@@ -237,6 +372,8 @@ export default function UserApp() {
         {notifError && <div className="alert alert-error">{notifError}</div>}
         {locationStatus && <div className="alert alert-success">{locationStatus}</div>}
         {locationError && <div className="alert alert-error">{locationError}</div>}
+        {stepStatus && <div className="alert alert-success">{stepStatus}</div>}
+        {stepError && <div className="alert alert-error">{stepError}</div>}
 
         {/* Action buttons */}
         <div className="btn-group">
@@ -261,6 +398,14 @@ export default function UserApp() {
             onClick={locationSharing ? handleDisableLocation : handleEnableLocation}
           >
             {locationSharing ? 'Stop location sharing' : 'Share my location'}
+          </button>
+
+          <button
+            className="btn btn-secondary"
+            onClick={handleEnableMotion}
+            disabled={motionEnabled}
+          >
+            {motionEnabled ? 'Step sensor enabled' : 'Enable step sensor'}
           </button>
 
           {userRole === 'admin' && (
