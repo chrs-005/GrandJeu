@@ -26,10 +26,31 @@ export async function requestNotificationPermission() {
 }
 
 function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const trimmed = base64String.trim();
+  const padding = '='.repeat((4 - (trimmed.length % 4)) % 4);
+  const base64 = (trimmed + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+
+function getVapidApplicationServerKey() {
+  const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+  if (!vapidKey) throw new Error('VITE_VAPID_PUBLIC_KEY is not set in Vercel.');
+
+  let keyBytes;
+  try {
+    keyBytes = urlBase64ToUint8Array(vapidKey);
+  } catch {
+    throw new Error('VITE_VAPID_PUBLIC_KEY is not valid base64url. Copy the generated public key exactly.');
+  }
+
+  if (keyBytes.byteLength !== 65) {
+    throw new Error(
+      `VITE_VAPID_PUBLIC_KEY is invalid. Expected 65 decoded bytes, got ${keyBytes.byteLength}. Copy the generated public key exactly.`
+    );
+  }
+
+  return keyBytes;
 }
 
 // Safe, deterministic subscription ID derived from the endpoint
@@ -42,11 +63,9 @@ async function subscriptionId(endpoint) {
 
 export async function subscribeToPush() {
   const registration = await navigator.serviceWorker.ready;
-  const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-  if (!vapidKey) throw new Error('VITE_VAPID_PUBLIC_KEY is not set');
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    applicationServerKey: getVapidApplicationServerKey(),
   });
   return subscription;
 }

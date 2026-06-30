@@ -30,7 +30,14 @@ export default function Admin() {
         },
         body: JSON.stringify({ title: title.trim(), body: body.trim(), target }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        throw new Error(`Server returned non-JSON response (${res.status}): ${text.slice(0, 160)}`);
+      }
+
       if (!res.ok || !data.ok) {
         setError(data.error || `Server error: ${res.status}`);
       } else {
