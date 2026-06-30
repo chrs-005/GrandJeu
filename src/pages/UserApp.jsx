@@ -134,7 +134,7 @@ export default function UserApp() {
       const z = acceleration.z || 0;
       const magnitude = Math.sqrt(x * x + y * y + z * z);
 
-      if (magnitude > 13.2 && now - lastStepAtRef.current > 330) {
+      if (magnitude > 16.5 && now - lastStepAtRef.current > 450) {
         lastStepAtRef.current = now;
         setSteps((previous) => {
           const next = previous + 1;
