@@ -2,10 +2,17 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
+const USERNAME_DOMAIN = 'grandjeu.local';
+
+function normalizeLogin(value) {
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.includes('@') ? trimmed : `${trimmed}@${USERNAME_DOMAIN}`;
+}
+
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -15,7 +22,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
+      await login(normalizeLogin(username), password);
       navigate('/app');
     } catch (err) {
       setError(friendlyError(err.code));
@@ -29,11 +36,13 @@ export default function Login() {
       case 'auth/user-not-found':
       case 'auth/wrong-password':
       case 'auth/invalid-credential':
-        return 'Invalid email or password.';
+        return 'Invalid username or password.';
       case 'auth/too-many-requests':
         return 'Too many attempts. Please try again later.';
       case 'auth/network-request-failed':
         return 'Network error. Check your connection.';
+      case 'auth/invalid-email':
+        return 'Enter a valid username.';
       default:
         return 'Login failed. Please try again.';
     }
@@ -47,15 +56,15 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} noValidate>
           <div className="field">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="username">Username</label>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="player1"
               required
-              autoComplete="email"
+              autoComplete="username"
               disabled={loading}
             />
           </div>
@@ -67,7 +76,7 @@ export default function Login() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="password"
               required
               autoComplete="current-password"
               disabled={loading}
@@ -77,11 +86,11 @@ export default function Login() {
           {error && <div className="alert alert-error">{error}</div>}
 
           <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%' }}>
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
 
-        <p className="hint">Admin access depends on your Firestore role.</p>
+        <p className="hint">Use the username and password given by the game leader.</p>
       </div>
     </div>
   );

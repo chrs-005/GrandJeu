@@ -1,0 +1,32 @@
+[
+  {
+    "username": "admin",
+    "password": "change-admin-password",
+    "role": "admin"
+  },
+  {
+    "username": "player1",
+    "password": "change-player-password",
+    "role": "user"
+  },
+  {
+    "username": "player2",
+    "password": "change-player-password",
+    "role": "user"
+  },
+  {
+    "username": "player3",
+    "password": "change-player-password",
+    "role": "user"
+  },
+  {
+    "username": "player4",
+    "password": "change-player-password",
+    "role": "user"
+  },
+  {
+    "username": "player5",
+    "password": "change-player-password",
+    "role": "user"
+  }
+]

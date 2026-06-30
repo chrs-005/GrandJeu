@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "seed-users": "node --use-system-ca scripts/seed-users.js",
     "generate-vapid": "node scripts/generate-vapid.js"
   },
   "dependencies": {

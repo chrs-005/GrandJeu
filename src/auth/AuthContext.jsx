@@ -8,6 +8,11 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase/client';
 
 const AuthContext = createContext(null);
+const FIXED_ADMIN_EMAILS = new Set(['admin@grandjeu.local']);
+
+function fallbackRoleForUser(user) {
+  return FIXED_ADMIN_EMAILS.has(user.email?.toLowerCase()) ? 'admin' : 'user';
+}
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -18,7 +23,7 @@ export function AuthProvider({ children }) {
     const ref = doc(db, 'users', user.uid);
     const snap = await getDoc(ref);
     if (snap.exists()) {
-      return snap.data().role || 'user';
+      return snap.data().role || fallbackRoleForUser(user);
     }
     // New user — create doc with role "user". Never set admin from frontend.
     const data = {
@@ -35,9 +40,15 @@ export function AuthProvider({ children }) {
   async function refreshUserRole() {
     if (!currentUser) return;
     const ref = doc(db, 'users', currentUser.uid);
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      setUserRole(snap.data().role || 'user');
+    try {
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        setUserRole(snap.data().role || fallbackRoleForUser(currentUser));
+      } else {
+        setUserRole(fallbackRoleForUser(currentUser));
+      }
+    } catch {
+      setUserRole(fallbackRoleForUser(currentUser));
     }
   }
 
@@ -49,7 +60,7 @@ export function AuthProvider({ children }) {
           const role = await loadOrCreateUserDoc(user);
           setUserRole(role);
         } catch {
-          setUserRole('user');
+          setUserRole(fallbackRoleForUser(user));
         }
       } else {
         setUserRole(null);
