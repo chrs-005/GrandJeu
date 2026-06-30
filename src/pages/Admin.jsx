@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { fetchPlayerLocations } from '../services/location';
 import { fetchStepChallenge, startStepChallenge } from '../services/steps';
+import { fetchDrawingChallenge, startDrawingChallenge } from '../services/drawing';
 
 const MAP_ZOOM = 16;
 const TILE_SIZE = 256;
@@ -122,6 +123,13 @@ export default function Admin() {
   const [stepStarting, setStepStarting] = useState(false);
   const [stepError, setStepError] = useState('');
   const [stepStatus, setStepStatus] = useState('');
+  const [drawingPrompt, setDrawingPrompt] = useState('A scout tent in a storm');
+  const [drawingDuration, setDrawingDuration] = useState(120);
+  const [drawingChallenge, setDrawingChallenge] = useState(null);
+  const [drawingSubmissions, setDrawingSubmissions] = useState([]);
+  const [drawingStarting, setDrawingStarting] = useState(false);
+  const [drawingError, setDrawingError] = useState('');
+  const [drawingStatus, setDrawingStatus] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -144,6 +152,31 @@ export default function Admin() {
 
     loadLocations();
     const interval = setInterval(loadLocations, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDrawingChallenge() {
+      if (!currentUser) return;
+      try {
+        const data = await fetchDrawingChallenge(currentUser);
+        if (!cancelled) {
+          setDrawingChallenge(data.challenge);
+          setDrawingSubmissions(data.submissions || []);
+          setDrawingError('');
+        }
+      } catch (err) {
+        if (!cancelled) setDrawingError(err.message || 'Failed to load drawing challenge.');
+      }
+    }
+
+    loadDrawingChallenge();
+    const interval = setInterval(loadDrawingChallenge, 5000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -231,6 +264,24 @@ export default function Admin() {
     }
   }
 
+  async function handleStartDrawingChallenge() {
+    setDrawingError('');
+    setDrawingStatus('');
+    setDrawingStarting(true);
+    try {
+      const data = await startDrawingChallenge(currentUser, drawingPrompt, Number(drawingDuration));
+      setDrawingChallenge(data.challenge);
+      setDrawingSubmissions([]);
+      setDrawingStatus(
+        `Drawing challenge started. Push sent to ${data.push?.sent ?? 0}/${data.push?.found ?? 0} subscribed devices.`
+      );
+    } catch (err) {
+      setDrawingError(err.message || 'Failed to start drawing challenge.');
+    } finally {
+      setDrawingStarting(false);
+    }
+  }
+
   async function handleLogout() {
     await logout();
     navigate('/login');
@@ -313,6 +364,69 @@ export default function Admin() {
             {!stepResults.length && (
               <div className="step-result-row">
                 <span>No step results yet.</span>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="info-section">
+          <h3 className="section-title">Drawing Challenge</h3>
+          <div className="field">
+            <label htmlFor="drawing-prompt">Prompt</label>
+            <input
+              disabled={drawingStarting}
+              id="drawing-prompt"
+              maxLength={120}
+              onChange={(e) => setDrawingPrompt(e.target.value)}
+              placeholder="Draw something..."
+              type="text"
+              value={drawingPrompt}
+            />
+          </div>
+          <div className="step-control-row">
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label htmlFor="drawing-duration">Duration seconds</label>
+              <input
+                disabled={drawingStarting}
+                id="drawing-duration"
+                max="900"
+                min="15"
+                onChange={(e) => setDrawingDuration(e.target.value)}
+                step="15"
+                type="number"
+                value={drawingDuration}
+              />
+            </div>
+            <button className="btn btn-primary" disabled={drawingStarting} onClick={handleStartDrawingChallenge}>
+              {drawingStarting ? 'Starting...' : 'Start drawing challenge'}
+            </button>
+          </div>
+
+          {drawingChallenge && (
+            <div className="challenge-status">
+              <strong>{drawingChallenge.active ? 'Active' : 'Finished'}</strong>
+              <span>
+                {drawingChallenge.prompt} | {new Date(drawingChallenge.startAtMs).toLocaleTimeString()} - {new Date(drawingChallenge.endAtMs).toLocaleTimeString()}
+              </span>
+            </div>
+          )}
+
+          {drawingStatus && <div className="alert alert-success">{drawingStatus}</div>}
+          {drawingError && <div className="alert alert-error">{drawingError}</div>}
+
+          <div className="drawing-gallery">
+            {drawingSubmissions.map((submission) => (
+              <article className="drawing-submission" key={submission.uid}>
+                <img alt={`Drawing by ${submission.username}`} src={submission.imageDataUrl} />
+                <div>
+                  <strong>{submission.username}</strong>
+                  <span>{formatAge(submission.updatedAt)}</span>
+                </div>
+              </article>
+            ))}
+            {!drawingSubmissions.length && (
+              <div className="step-result-row">
+                <span>No drawings submitted yet.</span>
               </div>
             )}
           </div>

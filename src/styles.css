@@ -392,6 +392,108 @@ html, body, #root {
   color: var(--text-muted);
 }
 
+/* Drawing challenge */
+.drawing-tool {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.drawing-prompt {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.drawing-canvas {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.drawing-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.drawing-colors,
+.drawing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.color-swatch {
+  width: 34px;
+  height: 34px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px var(--border);
+  cursor: pointer;
+}
+
+.color-swatch.is-active {
+  box-shadow: 0 0 0 3px var(--primary);
+}
+
+.drawing-size {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.drawing-size input {
+  width: 100%;
+}
+
+.drawing-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.drawing-submission {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.drawing-submission img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+}
+
+.drawing-submission div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.drawing-submission span {
+  color: var(--text-muted);
+}
+
 /* ── Loading screen ─────────────────────────────────── */
 .loading-screen {
   min-height: 100vh;
@@ -419,4 +521,5 @@ html, body, #root {
   .card { padding: 20px 16px; }
   .logo-title { font-size: 20px; }
   .step-control-row { grid-template-columns: 1fr; }
+  .drawing-gallery { grid-template-columns: 1fr; }
 }
