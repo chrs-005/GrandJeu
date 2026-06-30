@@ -25,13 +25,14 @@ export default function Login() {
       await login(normalizeLogin(username), password);
       navigate('/app');
     } catch (err) {
-      setError(friendlyError(err.code));
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
   }
 
-  function friendlyError(code) {
+  function friendlyError(err) {
+    const code = err?.code;
     switch (code) {
       case 'auth/user-not-found':
       case 'auth/wrong-password':
@@ -43,8 +44,14 @@ export default function Login() {
         return 'Network error. Check your connection.';
       case 'auth/invalid-email':
         return 'Enter a valid username.';
+      case 'auth/api-key-not-valid':
+      case 'auth/invalid-api-key':
+        return 'Firebase API key is wrong or missing in Vercel.';
+      case 'auth/configuration-not-found':
+      case 'auth/operation-not-allowed':
+        return 'Firebase Email/Password sign-in is not enabled for this project.';
       default:
-        return 'Login failed. Please try again.';
+        return `Login failed: ${code || err?.message || 'unknown error'}`;
     }
   }
 
