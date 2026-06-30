@@ -1,6 +1,3 @@
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase/client';
-
 export function isNotificationSupported() {
   return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
 }
@@ -73,17 +70,34 @@ export async function subscribeToPush() {
 export async function saveSubscription(user, subscription) {
   const subJson = subscription.toJSON();
   const id = await subscriptionId(subJson.endpoint);
-  const ref = doc(db, 'users', user.uid, 'pushSubscriptions', id);
-  await setDoc(ref, {
-    endpoint: subJson.endpoint,
-    keys: subJson.keys,
-    subscription: subJson,
-    active: true,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    userAgent: navigator.userAgent,
+
+  const idToken = await user.getIdToken();
+  const res = await fetch('/api/save-subscription', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({
+      id,
+      subscription: subJson,
+      userAgent: navigator.userAgent,
+    }),
   });
-  return id;
+
+  const text = await res.text();
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`Subscription save returned non-JSON response (${res.status}): ${text.slice(0, 120)}`);
+  }
+
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || `Subscription save failed: ${res.status}`);
+  }
+
+  return data.id || id;
 }
 
 export async function getExistingSubscription() {
