@@ -1,7 +1,30 @@
-import webpush from 'web-push';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+let firebaseAdmin;
+let webPushModule;
+
+async function getFirebaseAdmin() {
+  if (firebaseAdmin) return firebaseAdmin;
+
+  const app = await import('firebase-admin/app');
+  const auth = await import('firebase-admin/auth');
+  const firestore = await import('firebase-admin/firestore');
+
+  firebaseAdmin = {
+    initializeApp: app.initializeApp,
+    getApps: app.getApps,
+    cert: app.cert,
+    getAuth: auth.getAuth,
+    getFirestore: firestore.getFirestore,
+  };
+
+  return firebaseAdmin;
+}
+
+async function getWebPush() {
+  if (webPushModule) return webPushModule;
+  const mod = await import('web-push');
+  webPushModule = mod.default || mod;
+  return webPushModule;
+}
 
 function requiredEnv(name) {
   if (!process.env[name]) {
@@ -14,7 +37,8 @@ function normalizePrivateKey(value) {
   return value.replace(/^["']|["']$/g, '').replace(/\\n/g, '\n');
 }
 
-function getAdminApp() {
+async function getAdminApp() {
+  const { initializeApp, getApps, cert } = await getFirebaseAdmin();
   if (getApps().length > 0) return getApps()[0];
 
   return initializeApp({
@@ -26,12 +50,14 @@ function getAdminApp() {
   });
 }
 
-function initWebPush() {
+async function initWebPush() {
+  const webpush = await getWebPush();
   webpush.setVapidDetails(
     process.env.VAPID_SUBJECT || 'mailto:admin@example.com',
     requiredEnv('VAPID_PUBLIC_KEY'),
     requiredEnv('VAPID_PRIVATE_KEY')
   );
+  return webpush;
 }
 
 async function loadSubscriptions(db, uid, target) {
@@ -68,8 +94,10 @@ async function handlePost(req, res) {
     return res.status(401).json({ ok: false, error: 'Missing or malformed Authorization header' });
   }
 
+  const { getAuth, getFirestore } = await getFirebaseAdmin();
+  const app = await getAdminApp();
+
   let uid;
-  const app = getAdminApp();
   try {
     const decoded = await getAuth(app).verifyIdToken(authHeader.slice(7));
     uid = decoded.uid;
@@ -88,7 +116,7 @@ async function handlePost(req, res) {
     return res.status(400).json({ ok: false, error: 'title and body are required' });
   }
 
-  initWebPush();
+  const webpush = await initWebPush();
 
   let subscriptionDocs;
   try {
@@ -132,6 +160,7 @@ export default async function handler(req, res) {
     return res.status(500).json({
       ok: false,
       error: err.message || 'Unexpected server error',
+      code: err.code || null,
     });
   }
 }
