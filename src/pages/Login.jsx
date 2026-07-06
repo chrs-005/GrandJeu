@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { APP_NAME, APP_SUBTITLE } from '../config/gameConfig';
 
 const USERNAME_DOMAIN = 'grandjeu.local';
 
@@ -37,53 +38,55 @@ export default function Login() {
       case 'auth/user-not-found':
       case 'auth/wrong-password':
       case 'auth/invalid-credential':
-        return 'Invalid username or password.';
+        return 'Les dieux ne reconnaissent pas ce nom ou ce mot de passe.';
       case 'auth/too-many-requests':
-        return 'Too many attempts. Please try again later.';
+        return 'Trop de tentatives. Les dieux demandent de la patience…';
       case 'auth/network-request-failed':
-        return 'Network error. Check your connection.';
+        return 'Hermès ne passe pas : vérifie ta connexion.';
       case 'auth/invalid-email':
-        return 'Enter a valid username.';
+        return 'Entre un nom d’équipe valide.';
       case 'auth/api-key-not-valid':
       case 'auth/invalid-api-key':
-        return 'Firebase API key is wrong or missing in Vercel.';
+        return 'Clé API Firebase manquante ou invalide (Vercel).';
       case 'auth/configuration-not-found':
       case 'auth/operation-not-allowed':
-        return 'Firebase Email/Password sign-in is not enabled for this project.';
+        return 'La connexion Email/Password n’est pas activée sur Firebase.';
       default:
-        return `Login failed: ${code || err?.message || 'unknown error'}`;
+        return `Connexion refusée : ${code || err?.message || 'erreur inconnue'}`;
     }
   }
 
   return (
     <div className="page-center">
-      <div className="card" style={{ maxWidth: 400, width: '100%' }}>
-        <h1 className="logo-title">Grand Jeu</h1>
-        <p className="subtitle">Sign in to continue</p>
+      <div className="card" style={{ maxWidth: 400, width: '100%', textAlign: 'center' }}>
+        <div style={{ fontSize: 44, marginBottom: 4 }}>🏛️</div>
+        <h1 className="logo-title">{APP_NAME}</h1>
+        <p className="subtitle">{APP_SUBTITLE}</p>
 
-        <form onSubmit={handleSubmit} noValidate>
+        <form onSubmit={handleSubmit} noValidate style={{ textAlign: 'left' }}>
           <div className="field">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">Nom d’équipe</label>
             <input
               id="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="player1"
+              placeholder="faucon"
               required
               autoComplete="username"
+              autoCapitalize="none"
               disabled={loading}
             />
           </div>
 
           <div className="field">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">Mot de passe</label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="password"
+              placeholder="mot de passe"
               required
               autoComplete="current-password"
               disabled={loading}
@@ -93,11 +96,11 @@ export default function Login() {
           {error && <div className="alert alert-error">{error}</div>}
 
           <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%' }}>
-            {loading ? 'Signing in...' : 'Sign in'}
+            {loading ? 'Ouverture des portes…' : '⚡ Entrer dans l’Olympe'}
           </button>
         </form>
 
-        <p className="hint">Use the username and password given by the game leader.</p>
+        <p className="hint">Utilise le nom d’équipe et le mot de passe donnés par les dieux (tes chefs).</p>
       </div>
     </div>
   );

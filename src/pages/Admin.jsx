@@ -1,13 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { fetchPlayerLocations } from '../services/location';
-import { fetchStepChallenge, startStepChallenge } from '../services/steps';
-import { fetchDrawingChallenge, startDrawingChallenge } from '../services/drawing';
+import { fetchAdmin, adminAction } from '../services/api';
+import { useNow, formatRemaining } from '../hooks/useNow';
+import { teamInfo, challengeMeta, CHALLENGE_META, RANK_POINTS } from '../config/gameConfig';
+import { TRIVIA_PACKS } from '../data/triviaPacks';
+import { DRAWING_PROMPTS, PHOTO_MISSIONS, RIDDLE_PRESETS } from '../data/presets';
 
 const MAP_ZOOM = 16;
 const TILE_SIZE = 256;
+const QUICK_POINTS = [100, 70, 50, 30];
 
+// ---------------------------------------------------------------------------
+// Map (OpenStreetMap tiles, from the proof of concept)
+// ---------------------------------------------------------------------------
 function latLngToWorld(latitude, longitude, zoom) {
   const sinLat = Math.sin((latitude * Math.PI) / 180);
   const scale = TILE_SIZE * 2 ** zoom;
@@ -18,10 +24,10 @@ function latLngToWorld(latitude, longitude, zoom) {
 }
 
 function formatAge(updatedAt) {
-  if (!updatedAt) return 'unknown';
+  if (!updatedAt) return '?';
   const seconds = Math.max(0, Math.round((Date.now() - updatedAt) / 1000));
-  if (seconds < 60) return `${seconds}s ago`;
-  return `${Math.round(seconds / 60)}m ago`;
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.round(seconds / 60)}m`;
 }
 
 function LocationMap({ locations }) {
@@ -31,10 +37,7 @@ function LocationMap({ locations }) {
   useEffect(() => {
     if (!ref.current) return undefined;
     const observer = new ResizeObserver(([entry]) => {
-      setSize({
-        width: entry.contentRect.width,
-        height: entry.contentRect.height,
-      });
+      setSize({ width: entry.contentRect.width, height: entry.contentRect.height });
     });
     observer.observe(ref.current);
     return () => observer.disconnect();
@@ -49,22 +52,19 @@ function LocationMap({ locations }) {
   }, [locations]);
 
   const centerWorld = latLngToWorld(center.latitude, center.longitude, MAP_ZOOM);
-  const minTileX = Math.floor((centerWorld.x - size.width / 2) / TILE_SIZE);
-  const maxTileX = Math.floor((centerWorld.x + size.width / 2) / TILE_SIZE);
-  const minTileY = Math.floor((centerWorld.y - size.height / 2) / TILE_SIZE);
-  const maxTileY = Math.floor((centerWorld.y + size.height / 2) / TILE_SIZE);
   const tileCount = 2 ** MAP_ZOOM;
   const tiles = [];
-
   if (size.width && size.height) {
+    const minTileX = Math.floor((centerWorld.x - size.width / 2) / TILE_SIZE);
+    const maxTileX = Math.floor((centerWorld.x + size.width / 2) / TILE_SIZE);
+    const minTileY = Math.floor((centerWorld.y - size.height / 2) / TILE_SIZE);
+    const maxTileY = Math.floor((centerWorld.y + size.height / 2) / TILE_SIZE);
     for (let x = minTileX; x <= maxTileX; x++) {
       for (let y = minTileY; y <= maxTileY; y++) {
         if (y < 0 || y >= tileCount) continue;
         const wrappedX = ((x % tileCount) + tileCount) % tileCount;
         tiles.push({
           key: `${x}:${y}`,
-          x,
-          y,
           src: `https://tile.openstreetmap.org/${MAP_ZOOM}/${wrappedX}/${y}.png`,
           left: x * TILE_SIZE - centerWorld.x + size.width / 2,
           top: y * TILE_SIZE - centerWorld.y + size.height / 2,
@@ -76,16 +76,11 @@ function LocationMap({ locations }) {
   return (
     <div className="location-map" ref={ref}>
       {tiles.map((tile) => (
-        <img
-          alt=""
-          className="map-tile"
-          key={tile.key}
-          src={tile.src}
-          style={{ left: tile.left, top: tile.top }}
-        />
+        <img alt="" className="map-tile" key={tile.key} src={tile.src} style={{ left: tile.left, top: tile.top }} />
       ))}
       {locations.map((location) => {
         const world = latLngToWorld(location.latitude, location.longitude, MAP_ZOOM);
+        const info = teamInfo(location.username);
         return (
           <div
             className="map-marker"
@@ -93,193 +88,473 @@ function LocationMap({ locations }) {
             style={{
               left: world.x - centerWorld.x + size.width / 2,
               top: world.y - centerWorld.y + size.height / 2,
+              borderColor: info.color,
             }}
-            title={`${location.username} - ${formatAge(location.updatedAt)}`}
+            title={`${location.username} — il y a ${formatAge(location.updatedAt)}`}
           >
-            <span>{location.username.slice(0, 2).toUpperCase()}</span>
+            <span>{info.emblem}</span>
           </div>
         );
       })}
-      {!locations.length && <div className="map-empty">No shared locations yet</div>}
+      {!locations.length && <div className="map-empty">Aucune position partagée</div>}
     </div>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Launch forms
+// ---------------------------------------------------------------------------
+function LaunchForm({ type, onLaunch, busy }) {
+  const [stepDuration, setStepDuration] = useState(120);
+  const [hideFinal, setHideFinal] = useState(45);
+  const [packId, setPackId] = useState(TRIVIA_PACKS[0].id);
+  const [questionCount, setQuestionCount] = useState(8);
+  const [bountyTarget, setBountyTarget] = useState('');
+  const [bountyMinutes, setBountyMinutes] = useState(15);
+  const [mission, setMission] = useState(PHOTO_MISSIONS[0]);
+  const [missionMinutes, setMissionMinutes] = useState(10);
+  const [drawMinutes, setDrawMinutes] = useState(3);
+  const [guessMinutes, setGuessMinutes] = useState(2);
+  const [riddlePreset, setRiddlePreset] = useState(0);
+  const [riddleText, setRiddleText] = useState(RIDDLE_PRESETS[0].text);
+  const [riddleAnswers, setRiddleAnswers] = useState(RIDDLE_PRESETS[0].answers.join(', '));
+  const [riddlePoints, setRiddlePoints] = useState(100);
+  const [riddleMinutes, setRiddleMinutes] = useState(10);
+
+  function launch() {
+    switch (type) {
+      case 'steps':
+        return onLaunch(type, {
+          durationSeconds: Number(stepDuration),
+          hideFinalSeconds: Number(hideFinal),
+          rankPoints: RANK_POINTS,
+        });
+      case 'trivia': {
+        const pack = TRIVIA_PACKS.find((p) => p.id === packId) || TRIVIA_PACKS[0];
+        return onLaunch(type, {
+          questions: pack.questions.slice(0, Number(questionCount)),
+          lobbySeconds: 10,
+          revealSeconds: 6,
+        });
+      }
+      case 'bounty':
+        return onLaunch(type, {
+          target: bountyTarget,
+          durationSeconds: Number(bountyMinutes) * 60,
+        });
+      case 'photo':
+        return onLaunch(type, {
+          mission,
+          durationSeconds: Number(missionMinutes) * 60,
+        });
+      case 'drawguess':
+        return onLaunch(type, {
+          drawSeconds: Number(drawMinutes) * 60,
+          guessSeconds: Number(guessMinutes) * 60,
+          prompts: DRAWING_PROMPTS,
+        });
+      case 'riddle':
+        return onLaunch(type, {
+          text: riddleText,
+          answers: riddleAnswers.split(',').map((a) => a.trim()).filter(Boolean),
+          points: Number(riddlePoints),
+          firstBonus: 50,
+          durationSeconds: Number(riddleMinutes) * 60,
+        });
+      default:
+        return null;
+    }
+  }
+
+  return (
+    <div className="launch-form">
+      {type === 'steps' && (
+        <div className="form-grid">
+          <label>
+            Durée (secondes)
+            <input min="30" max="1800" onChange={(e) => setStepDuration(e.target.value)} type="number" value={stepDuration} />
+          </label>
+          <label>
+            Classement voilé sur les dernières (secondes)
+            <input min="0" max="600" onChange={(e) => setHideFinal(e.target.value)} type="number" value={hideFinal} />
+          </label>
+          <p className="form-hint">Points au classement : {RANK_POINTS.join(' / ')}</p>
+        </div>
+      )}
+
+      {type === 'trivia' && (
+        <div className="form-grid">
+          <label>
+            Pack de questions
+            <select onChange={(e) => setPackId(e.target.value)} value={packId}>
+              {TRIVIA_PACKS.map((pack) => (
+                <option key={pack.id} value={pack.id}>
+                  {pack.name} ({pack.questions.length} questions)
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Nombre de questions
+            <input min="1" max="20" onChange={(e) => setQuestionCount(e.target.value)} type="number" value={questionCount} />
+          </label>
+          <p className="form-hint">Points selon la rapidité (style Kahoot). Révélation entre chaque question.</p>
+        </div>
+      )}
+
+      {type === 'bounty' && (
+        <div className="form-grid">
+          <label>
+            La cible de Méduse (nom du scout)
+            <input maxLength={120} onChange={(e) => setBountyTarget(e.target.value)} placeholder="ex: Marc, l’animateur au foulard rouge" type="text" value={bountyTarget} />
+          </label>
+          <label>
+            Durée (minutes)
+            <input min="1" max="240" onChange={(e) => setBountyMinutes(e.target.value)} type="number" value={bountyMinutes} />
+          </label>
+        </div>
+      )}
+
+      {type === 'photo' && (
+        <div className="form-grid">
+          <label>
+            Mission
+            <select onChange={(e) => setMission(e.target.value)} value={mission}>
+              {PHOTO_MISSIONS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Ou mission personnalisée
+            <input maxLength={300} onChange={(e) => setMission(e.target.value)} type="text" value={mission} />
+          </label>
+          <label>
+            Durée (minutes)
+            <input min="1" max="240" onChange={(e) => setMissionMinutes(e.target.value)} type="number" value={missionMinutes} />
+          </label>
+        </div>
+      )}
+
+      {type === 'drawguess' && (
+        <div className="form-grid">
+          <label>
+            Temps de dessin (minutes)
+            <input min="1" max="20" onChange={(e) => setDrawMinutes(e.target.value)} type="number" value={drawMinutes} />
+          </label>
+          <label>
+            Temps pour deviner (minutes)
+            <input min="1" max="20" onChange={(e) => setGuessMinutes(e.target.value)} type="number" value={guessMinutes} />
+          </label>
+          <p className="form-hint">
+            Chaque équipe reçoit un sujet au hasard, puis devine le dessin d’une autre équipe.
+          </p>
+        </div>
+      )}
+
+      {type === 'riddle' && (
+        <div className="form-grid">
+          <label>
+            Préréglage
+            <select
+              onChange={(e) => {
+                const idx = Number(e.target.value);
+                setRiddlePreset(idx);
+                if (idx >= 0) {
+                  setRiddleText(RIDDLE_PRESETS[idx].text);
+                  setRiddleAnswers(RIDDLE_PRESETS[idx].answers.join(', '));
+                }
+              }}
+              value={riddlePreset}
+            >
+              {RIDDLE_PRESETS.map((preset, idx) => (
+                <option key={preset.label} value={idx}>{preset.label}</option>
+              ))}
+              <option value={-1}>— Énigme personnalisée —</option>
+            </select>
+          </label>
+          <label>
+            Énigme
+            <textarea maxLength={1000} onChange={(e) => setRiddleText(e.target.value)} rows={3} value={riddleText} />
+          </label>
+          <label>
+            Réponses acceptées (séparées par des virgules)
+            <input onChange={(e) => setRiddleAnswers(e.target.value)} type="text" value={riddleAnswers} />
+          </label>
+          <label>
+            Points
+            <input min="0" max="1000" onChange={(e) => setRiddlePoints(e.target.value)} type="number" value={riddlePoints} />
+          </label>
+          <label>
+            Durée (minutes)
+            <input min="1" max="240" onChange={(e) => setRiddleMinutes(e.target.value)} type="number" value={riddleMinutes} />
+          </label>
+          <p className="form-hint">+50 pts bonus pour la première équipe qui résout. Idéal pour les énigmes de lieux !</p>
+        </div>
+      )}
+
+      <button className="btn btn-primary" disabled={busy} onClick={launch} type="button">
+        {busy ? 'Lancement…' : `${challengeMeta(type).icon} Lancer ${challengeMeta(type).title}`}
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Live board of the running/last challenge
+// ---------------------------------------------------------------------------
+function ReviewButtons({ onAward, entryPoints }) {
+  return (
+    <div className="review-buttons">
+      {QUICK_POINTS.map((points) => (
+        <button
+          className={`btn btn-sm ${entryPoints === points ? 'btn-primary' : 'btn-secondary'}`}
+          key={points}
+          onClick={() => onAward(points)}
+          type="button"
+        >
+          +{points}
+        </button>
+      ))}
+      <button className="btn btn-sm btn-danger" onClick={() => onAward(0)} type="button">
+        ✗
+      </button>
+    </div>
+  );
+}
+
+function ChallengeBoard({ challenge, media, now, onAction, busy }) {
+  const meta = challengeMeta(challenge.type);
+  const board = challenge.board || {};
+  const entries = Object.entries(board).map(([uid, entry]) => ({ uid, ...entry }));
+  const running = challenge.status === 'active' && now < challenge.endAtMs;
+
+  function award(uid, points) {
+    onAction('review', { challengeId: challenge.id, uid, points });
+  }
+
+  return (
+    <div className="challenge-board">
+      <div className="challenge-board-head">
+        <div>
+          <strong>{meta.icon} {meta.title}</strong>
+          <span className={`badge ${running ? 'badge-success' : 'badge-neutral'}`}>
+            {running ? `En cours — ${formatRemaining(challenge.endAtMs - now)}` : 'Terminé'}
+          </span>
+        </div>
+        <div className="btn-group">
+          {running && challenge.type === 'steps' && (
+            <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onAction('end', { challengeId: challenge.id, award: true })} type="button">
+              🏁 Terminer + attribuer les points
+            </button>
+          )}
+          {running && challenge.type !== 'steps' && (
+            <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onAction('end', { challengeId: challenge.id })} type="button">
+              🏁 Terminer maintenant
+            </button>
+          )}
+          {!running && challenge.type === 'steps' && challenge.status !== 'ended' && (
+            <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => onAction('end', { challengeId: challenge.id, award: true })} type="button">
+              🏆 Attribuer les points du classement
+            </button>
+          )}
+          <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => onAction('clear')} type="button">
+            Retirer de l’écran des équipes
+          </button>
+        </div>
+      </div>
+
+      {/* Steps */}
+      {challenge.type === 'steps' && (
+        <ol className="mini-board">
+          {entries
+            .sort((a, b) => (b.steps || 0) - (a.steps || 0))
+            .map((entry, index) => (
+              <li key={entry.uid}>
+                <span>{index + 1}. {teamInfo(entry.username).emblem} {entry.username}</span>
+                <strong>
+                  {entry.steps || 0} pas {entry.points ? `→ +${entry.points} pts` : ''}
+                </strong>
+              </li>
+            ))}
+          {!entries.length && <li><span>Aucun pas compté pour l’instant.</span></li>}
+        </ol>
+      )}
+
+      {/* Trivia */}
+      {challenge.type === 'trivia' && (
+        <ol className="mini-board">
+          {entries
+            .sort((a, b) => (b.points || 0) - (a.points || 0))
+            .map((entry) => (
+              <li key={entry.uid}>
+                <span>{teamInfo(entry.username).emblem} {entry.username} — {Object.keys(entry.answers || {}).length} réponses</span>
+                <strong>{entry.points || 0} pts</strong>
+              </li>
+            ))}
+          {!entries.length && <li><span>Aucune réponse pour l’instant.</span></li>}
+        </ol>
+      )}
+
+      {/* Photos & bounty */}
+      {['bounty', 'photo'].includes(challenge.type) && (
+        <div className="submission-grid">
+          {entries
+            .filter((entry) => entry.submittedAtMs)
+            .sort((a, b) => a.submittedAtMs - b.submittedAtMs)
+            .map((entry) => (
+              <article className="submission-card" key={entry.uid}>
+                {media?.[entry.uid] ? (
+                  <img alt={`Photo de ${entry.username}`} src={media[entry.uid]} />
+                ) : (
+                  <div className="submission-placeholder">📷 (active « charger les images »)</div>
+                )}
+                <div className="submission-meta">
+                  <strong>{teamInfo(entry.username).emblem} {entry.username}</strong>
+                  <span>{new Date(entry.submittedAtMs).toLocaleTimeString()}</span>
+                  <span className={`badge ${entry.status === 'valid' ? 'badge-success' : entry.status === 'rejected' ? 'badge-error' : 'badge-neutral'}`}>
+                    {entry.status === 'valid' ? `Validé +${entry.points}` : entry.status === 'rejected' ? 'Refusé' : 'À juger'}
+                  </span>
+                </div>
+                <ReviewButtons entryPoints={entry.points} onAward={(points) => award(entry.uid, points)} />
+              </article>
+            ))}
+          {!entries.some((entry) => entry.submittedAtMs) && <p className="form-hint">Aucune photo reçue pour l’instant.</p>}
+        </div>
+      )}
+
+      {/* Draw & guess */}
+      {challenge.type === 'drawguess' && (
+        <div className="submission-grid">
+          {Object.entries(challenge.config.assignments || {}).map(([artistUid, assignment]) => {
+            // The guesser of this artist's drawing:
+            const guesserEntry = Object.entries(challenge.config.assignments).find(
+              ([, a]) => a.sourceUid === artistUid
+            );
+            const guesserUid = guesserEntry?.[0];
+            const guesser = guesserUid ? board[guesserUid] : null;
+            return (
+              <article className="submission-card" key={artistUid}>
+                {media?.[artistUid] ? (
+                  <img alt={`Dessin de ${assignment.username}`} src={media[artistUid]} />
+                ) : (
+                  <div className="submission-placeholder">🎨 pas encore de dessin</div>
+                )}
+                <div className="submission-meta">
+                  <strong>{teamInfo(assignment.username).emblem} {assignment.username}</strong>
+                  <span>Sujet : {assignment.prompt}</span>
+                  <span>
+                    Devine : {guesserEntry?.[1]?.username || '?'} → « {guesser?.guess || '…'} »
+                  </span>
+                </div>
+                {guesserUid && guesser?.guess && (
+                  <ReviewButtons
+                    entryPoints={guesser.guessPoints}
+                    onAward={(points) => award(guesserUid, points)}
+                  />
+                )}
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Riddle */}
+      {challenge.type === 'riddle' && (
+        <>
+          <p className="form-hint">
+            Énigme : {challenge.config.text} — Réponses : {challenge.config.answers?.join(', ')}
+          </p>
+          <ol className="mini-board">
+            {entries
+              .sort((a, b) => (a.solvedAtMs || Infinity) - (b.solvedAtMs || Infinity))
+              .map((entry) => (
+                <li key={entry.uid}>
+                  <span>
+                    {teamInfo(entry.username).emblem} {entry.username} — {entry.attempts || 0} essai{(entry.attempts || 0) > 1 ? 's' : ''}
+                  </span>
+                  <strong>
+                    {entry.solved ? `✅ ${new Date(entry.solvedAtMs).toLocaleTimeString()} (+${entry.points})` : '…'}
+                  </strong>
+                </li>
+              ))}
+            {!entries.length && <li><span>Aucun essai pour l’instant.</span></li>}
+          </ol>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main admin page
+// ---------------------------------------------------------------------------
 export default function Admin() {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
 
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  const [sending, setSending] = useState(false);
-  const [result, setResult] = useState(null);
+  const [data, setData] = useState(null);
   const [error, setError] = useState('');
-  const [locations, setLocations] = useState([]);
-  const [locationError, setLocationError] = useState('');
-  const [locationsLoading, setLocationsLoading] = useState(false);
-  const [stepDuration, setStepDuration] = useState(120);
-  const [stepChallenge, setStepChallenge] = useState(null);
-  const [stepResults, setStepResults] = useState([]);
-  const [stepStarting, setStepStarting] = useState(false);
-  const [stepError, setStepError] = useState('');
-  const [stepStatus, setStepStatus] = useState('');
-  const [drawingPrompt, setDrawingPrompt] = useState('A scout tent in a storm');
-  const [drawingDuration, setDrawingDuration] = useState(120);
-  const [drawingChallenge, setDrawingChallenge] = useState(null);
-  const [drawingSubmissions, setDrawingSubmissions] = useState([]);
-  const [drawingStarting, setDrawingStarting] = useState(false);
-  const [drawingError, setDrawingError] = useState('');
-  const [drawingStatus, setDrawingStatus] = useState('');
+  const [status, setStatus] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [launchType, setLaunchType] = useState('steps');
+  const [withImages, setWithImages] = useState(true);
+  const [notifTitle, setNotifTitle] = useState('');
+  const [notifBody, setNotifBody] = useState('');
+  const offsetRef = useRef(0);
+  const withImagesRef = useRef(withImages);
+  withImagesRef.current = withImages;
 
-  useEffect(() => {
-    let cancelled = false;
+  const serverNow = useCallback(() => Date.now() + offsetRef.current, []);
+  const now = useNow(serverNow, 1000);
 
-    async function loadLocations() {
-      if (!currentUser) return;
-      setLocationsLoading(true);
-      try {
-        const items = await fetchPlayerLocations(currentUser);
-        if (!cancelled) {
-          setLocations(items);
-          setLocationError('');
-        }
-      } catch (err) {
-        if (!cancelled) setLocationError(err.message || 'Failed to load locations.');
-      } finally {
-        if (!cancelled) setLocationsLoading(false);
-      }
+  const load = useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      const result = await fetchAdmin(currentUser, { images: withImagesRef.current });
+      offsetRef.current = result.serverNow - Date.now();
+      setData(result);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Erreur de chargement.');
     }
-
-    loadLocations();
-    const interval = setInterval(loadLocations, 10000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
   }, [currentUser]);
 
   useEffect(() => {
-    let cancelled = false;
+    load();
+    const interval = setInterval(load, 6000);
+    return () => clearInterval(interval);
+  }, [load]);
 
-    async function loadDrawingChallenge() {
-      if (!currentUser) return;
-      try {
-        const data = await fetchDrawingChallenge(currentUser);
-        if (!cancelled) {
-          setDrawingChallenge(data.challenge);
-          setDrawingSubmissions(data.submissions || []);
-          setDrawingError('');
-        }
-      } catch (err) {
-        if (!cancelled) setDrawingError(err.message || 'Failed to load drawing challenge.');
-      }
+  async function runAction(action, payload = {}, successMessage = '') {
+    setBusy(true);
+    setError('');
+    setStatus('');
+    try {
+      const result = await adminAction(currentUser, action, payload);
+      if (successMessage) setStatus(successMessage);
+      await load();
+      return result;
+    } catch (err) {
+      setError(err.message || 'Action impossible.');
+      return null;
+    } finally {
+      setBusy(false);
     }
+  }
 
-    loadDrawingChallenge();
-    const interval = setInterval(loadDrawingChallenge, 5000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [currentUser]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadStepChallenge() {
-      if (!currentUser) return;
-      try {
-        const data = await fetchStepChallenge(currentUser);
-        if (!cancelled) {
-          setStepChallenge(data.challenge);
-          setStepResults(data.results || []);
-          setStepError('');
-        }
-      } catch (err) {
-        if (!cancelled) setStepError(err.message || 'Failed to load step challenge.');
-      }
+  async function launchChallenge(type, config) {
+    const result = await runAction('start', { type, config });
+    if (result) {
+      setStatus(
+        `${challengeMeta(type).title} lancé ! Push envoyé à ${result.push?.sent ?? 0}/${result.push?.found ?? 0} appareils.`
+      );
     }
-
-    loadStepChallenge();
-    const interval = setInterval(loadStepChallenge, 5000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [currentUser]);
+  }
 
   async function sendNotification(target) {
-    setError('');
-    setResult(null);
-    if (!title.trim() || !body.trim()) {
-      setError('Title and body are required.');
-      return;
-    }
-    setSending(true);
-    try {
-      const idToken = await currentUser.getIdToken();
-      const res = await fetch('/api/send-notification', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({ title: title.trim(), body: body.trim(), target }),
-      });
-      const text = await res.text();
-      let data = {};
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch {
-        throw new Error(`Server returned non-JSON response (${res.status}): ${text.slice(0, 160)}`);
-      }
-
-      if (!res.ok || !data.ok) {
-        setError(data.error || `Server error: ${res.status}`);
-      } else {
-        setResult(data);
-      }
-    } catch (err) {
-      setError(err.message || 'Network error. Is the server running?');
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function handleStartStepChallenge() {
-    setStepError('');
-    setStepStatus('');
-    setStepStarting(true);
-    try {
-      const data = await startStepChallenge(currentUser, Number(stepDuration));
-      setStepChallenge(data.challenge);
-      setStepResults([]);
-      setStepStatus(
-        `Step challenge started. Push sent to ${data.push?.sent ?? 0}/${data.push?.found ?? 0} subscribed devices.`
-      );
-    } catch (err) {
-      setStepError(err.message || 'Failed to start step challenge.');
-    } finally {
-      setStepStarting(false);
-    }
-  }
-
-  async function handleStartDrawingChallenge() {
-    setDrawingError('');
-    setDrawingStatus('');
-    setDrawingStarting(true);
-    try {
-      const data = await startDrawingChallenge(currentUser, drawingPrompt, Number(drawingDuration));
-      setDrawingChallenge(data.challenge);
-      setDrawingSubmissions([]);
-      setDrawingStatus(
-        `Drawing challenge started. Push sent to ${data.push?.sent ?? 0}/${data.push?.found ?? 0} subscribed devices.`
-      );
-    } catch (err) {
-      setDrawingError(err.message || 'Failed to start drawing challenge.');
-    } finally {
-      setDrawingStarting(false);
-    }
+    const result = await runAction('notify', { title: notifTitle, body: notifBody, target });
+    if (result) setStatus(`Notification envoyée à ${result.sent}/${result.found} appareils.`);
   }
 
   async function handleLogout() {
@@ -287,234 +562,159 @@ export default function Admin() {
     navigate('/login');
   }
 
+  const challenge = data?.challenge;
+  const showChallenge = challenge && data?.currentChallengeId === challenge.id;
+
   return (
-    <div className="page-center" style={{ alignItems: 'flex-start', paddingTop: 32 }}>
-      <div className="card" style={{ maxWidth: 860, width: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h1 className="logo-title">Grand Jeu</h1>
-            <span className="badge badge-admin" style={{ marginBottom: 12 }}>Admin</span>
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={handleLogout}>Logout</button>
+    <div className="app-page admin-page">
+      <header className="app-header">
+        <div>
+          <h1 className="logo-title">⚡ Console des Dieux</h1>
+          <span className="badge badge-admin">Admin</span>
         </div>
+        <div className="btn-group">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/app')} type="button">
+            Vue équipe
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={handleLogout} type="button">
+            Sortir
+          </button>
+        </div>
+      </header>
 
-        <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 20 }}>
-          Signed in as <strong>{currentUser?.email}</strong>
-        </p>
+      {status && <div className="alert alert-success">{status}</div>}
+      {error && <div className="alert alert-error">{error}</div>}
 
-        <section className="info-section">
-          <h3 className="section-title">Player Map</h3>
-          <LocationMap locations={locations} />
-          {locationError && <div className="alert alert-error">{locationError}</div>}
-          <div className="location-list">
-            {locations.map((location) => (
-              <div className="location-list-row" key={location.uid}>
-                <strong>{location.username}</strong>
-                <span>{formatAge(location.updatedAt)}</span>
-              </div>
-            ))}
-            {!locations.length && (
-              <div className="location-list-row">
-                <span>{locationsLoading ? 'Loading locations...' : 'No players are sharing yet.'}</span>
-              </div>
-            )}
-          </div>
+      <main className="app-main admin-main">
+        {/* Current challenge */}
+        <section className="admin-section">
+          <h3 className="section-title">Défi en cours</h3>
+          {showChallenge ? (
+            <>
+              <label className="toggle-images">
+                <input checked={withImages} onChange={(e) => setWithImages(e.target.checked)} type="checkbox" />
+                Charger les images (photos/dessins)
+              </label>
+              <ChallengeBoard busy={busy} challenge={challenge} media={data.media} now={now} onAction={runAction} />
+            </>
+          ) : (
+            <p className="form-hint">Aucun défi affiché chez les équipes. Lancez-en un ci-dessous !</p>
+          )}
         </section>
 
-        <section className="info-section">
-          <h3 className="section-title">Step Challenge</h3>
-          <div className="step-control-row">
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor="step-duration">Duration seconds</label>
-              <input
-                id="step-duration"
-                min="15"
-                max="900"
-                step="15"
-                type="number"
-                value={stepDuration}
-                onChange={(e) => setStepDuration(e.target.value)}
-                disabled={stepStarting}
-              />
-            </div>
-            <button className="btn btn-primary" onClick={handleStartStepChallenge} disabled={stepStarting}>
-              {stepStarting ? 'Starting...' : 'Start step challenge'}
-            </button>
-          </div>
-
-          {stepChallenge && (
-            <div className="challenge-status">
-              <strong>{stepChallenge.active ? 'Active' : 'Finished'}</strong>
-              <span>
-                {new Date(stepChallenge.startAtMs).toLocaleTimeString()} - {new Date(stepChallenge.endAtMs).toLocaleTimeString()}
-              </span>
-            </div>
-          )}
-
-          {stepStatus && <div className="alert alert-success">{stepStatus}</div>}
-          {stepError && <div className="alert alert-error">{stepError}</div>}
-
-          <div className="step-results">
-            {stepResults.map((result, index) => (
-              <div className="step-result-row" key={result.uid}>
-                <span>{index + 1}. {result.username}</span>
-                <strong>{result.steps} steps</strong>
-              </div>
+        {/* Launch */}
+        <section className="admin-section">
+          <h3 className="section-title">Lancer un défi</h3>
+          <div className="type-tabs">
+            {Object.entries(CHALLENGE_META).map(([type, meta]) => (
+              <button
+                className={`type-tab ${launchType === type ? 'is-active' : ''}`}
+                key={type}
+                onClick={() => setLaunchType(type)}
+                type="button"
+              >
+                {meta.icon} {meta.title.replace(/^(La |Le |Les |L’)/, '')}
+              </button>
             ))}
-            {!stepResults.length && (
-              <div className="step-result-row">
-                <span>No step results yet.</span>
-              </div>
-            )}
           </div>
+          <p className="form-hint">{challengeMeta(launchType).tagline}</p>
+          <LaunchForm busy={busy} onLaunch={launchChallenge} type={launchType} />
         </section>
 
-        <section className="info-section">
-          <h3 className="section-title">Drawing Challenge</h3>
-          <div className="field">
-            <label htmlFor="drawing-prompt">Prompt</label>
-            <input
-              disabled={drawingStarting}
-              id="drawing-prompt"
-              maxLength={120}
-              onChange={(e) => setDrawingPrompt(e.target.value)}
-              placeholder="Draw something..."
-              type="text"
-              value={drawingPrompt}
-            />
-          </div>
-          <div className="step-control-row">
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor="drawing-duration">Duration seconds</label>
-              <input
-                disabled={drawingStarting}
-                id="drawing-duration"
-                max="900"
-                min="15"
-                onChange={(e) => setDrawingDuration(e.target.value)}
-                step="15"
-                type="number"
-                value={drawingDuration}
-              />
-            </div>
-            <button className="btn btn-primary" disabled={drawingStarting} onClick={handleStartDrawingChallenge}>
-              {drawingStarting ? 'Starting...' : 'Start drawing challenge'}
-            </button>
-          </div>
-
-          {drawingChallenge && (
-            <div className="challenge-status">
-              <strong>{drawingChallenge.active ? 'Active' : 'Finished'}</strong>
-              <span>
-                {drawingChallenge.prompt} | {new Date(drawingChallenge.startAtMs).toLocaleTimeString()} - {new Date(drawingChallenge.endAtMs).toLocaleTimeString()}
-              </span>
-            </div>
-          )}
-
-          {drawingStatus && <div className="alert alert-success">{drawingStatus}</div>}
-          {drawingError && <div className="alert alert-error">{drawingError}</div>}
-
-          <div className="drawing-gallery">
-            {drawingSubmissions.map((submission) => (
-              <article className="drawing-submission" key={submission.uid}>
-                <img alt={`Drawing by ${submission.username}`} src={submission.imageDataUrl} />
-                <div>
-                  <strong>{submission.username}</strong>
-                  <span>{formatAge(submission.updatedAt)}</span>
+        {/* Scores */}
+        <section className="admin-section">
+          <h3 className="section-title">Scores</h3>
+          <div className="admin-scores">
+            {(data?.teams || []).map((team, index) => {
+              const info = teamInfo(team.username);
+              return (
+                <div className="admin-score-row" key={team.uid}>
+                  <span className="olympus-rank">{index + 1}.</span>
+                  <span>{info.emblem} <strong>{team.username}</strong> <small>({info.god})</small></span>
+                  <strong className="admin-score-value">{team.score}</strong>
+                  <div className="btn-group">
+                    {[25, 50, 100].map((points) => (
+                      <button className="btn btn-sm btn-secondary" disabled={busy} key={points} onClick={() => runAction('adjust-score', { uid: team.uid, delta: points, reason: 'Bonus admin' })} type="button">
+                        +{points}
+                      </button>
+                    ))}
+                    <button className="btn btn-sm btn-danger" disabled={busy} onClick={() => runAction('adjust-score', { uid: team.uid, delta: -25, reason: 'Malus admin' })} type="button">
+                      −25
+                    </button>
+                  </div>
                 </div>
-              </article>
-            ))}
-            {!drawingSubmissions.length && (
-              <div className="step-result-row">
-                <span>No drawings submitted yet.</span>
-              </div>
-            )}
+              );
+            })}
           </div>
-        </section>
-
-        <section>
-          <h3 className="section-title">Send Push Notification</h3>
-
-          <div className="field">
-            <label htmlFor="notif-title">Title</label>
-            <input
-              id="notif-title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Notification title"
-              disabled={sending}
-              maxLength={120}
-            />
-          </div>
-
-          <div className="field">
-            <label htmlFor="notif-body">Message</label>
-            <textarea
-              id="notif-body"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Notification body text…"
-              rows={3}
-              disabled={sending}
-              maxLength={500}
-            />
-          </div>
-
-          {error && <div className="alert alert-error">{error}</div>}
-
-          <div className="btn-group">
-            <button
-              className="btn btn-primary"
-              onClick={() => sendNotification('all')}
-              disabled={sending}
-            >
-              {sending ? 'Sending…' : 'Send to all users'}
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => sendNotification('self')}
-              disabled={sending}
-            >
-              Send to myself only
-            </button>
-          </div>
-        </section>
-
-        {result && (
-          <div className="result-box">
-            <h4 style={{ marginBottom: 8, color: 'var(--success)' }}>Notification sent</h4>
-            <div className="result-grid">
-              <div className="result-item">
-                <span className="result-num">{result.sent ?? 0}</span>
-                <span className="result-label">Sent</span>
-              </div>
-              <div className="result-item">
-                <span className="result-num">{result.found ?? 0}</span>
-                <span className="result-label">Found</span>
-              </div>
-              <div className="result-item">
-                <span className="result-num" style={{ color: 'var(--warning)' }}>{result.failed ?? 0}</span>
-                <span className="result-label">Failed</span>
-              </div>
-              <div className="result-item">
-                <span className="result-num" style={{ color: 'var(--text-muted)' }}>{result.removed ?? 0}</span>
-                <span className="result-label">Removed</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-          <a
-            href="/app"
-            onClick={(e) => { e.preventDefault(); navigate('/app'); }}
-            className="btn btn-ghost"
+          <button
+            className="btn btn-danger btn-sm"
+            disabled={busy}
+            onClick={() => {
+              if (window.confirm('Remettre TOUS les scores à zéro ?')) {
+                runAction('reset-scores', {}, 'Scores remis à zéro.');
+              }
+            }}
+            type="button"
           >
-            ← Back to App
-          </a>
-        </div>
-      </div>
+            ♻️ Remettre les scores à zéro
+          </button>
+        </section>
+
+        {/* Map */}
+        <section className="admin-section">
+          <h3 className="section-title">Carte des équipes</h3>
+          <LocationMap locations={data?.locations || []} />
+          <div className="location-list">
+            {(data?.locations || []).map((location) => (
+              <div className="location-list-row" key={location.uid}>
+                <strong>{teamInfo(location.username).emblem} {location.username}</strong>
+                <span>il y a {formatAge(location.updatedAt)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Notifications */}
+        <section className="admin-section">
+          <h3 className="section-title">Message des dieux (notification)</h3>
+          <div className="form-grid">
+            <label>
+              Titre
+              <input maxLength={120} onChange={(e) => setNotifTitle(e.target.value)} placeholder="⚡ Zeus gronde…" type="text" value={notifTitle} />
+            </label>
+            <label>
+              Message
+              <textarea maxLength={500} onChange={(e) => setNotifBody(e.target.value)} placeholder="Rendez-vous à la fontaine dans 10 minutes !" rows={2} value={notifBody} />
+            </label>
+          </div>
+          <div className="btn-group">
+            <button className="btn btn-primary" disabled={busy || !notifTitle.trim() || !notifBody.trim()} onClick={() => sendNotification('all')} type="button">
+              Envoyer à tous
+            </button>
+            <button className="btn btn-secondary" disabled={busy || !notifTitle.trim() || !notifBody.trim()} onClick={() => sendNotification('self')} type="button">
+              Test sur moi
+            </button>
+          </div>
+        </section>
+
+        {/* Score log */}
+        <section className="admin-section">
+          <h3 className="section-title">Historique des points</h3>
+          <div className="score-log">
+            {(data?.scoreLog || []).map((entry, index) => (
+              <div className="score-log-row" key={index}>
+                <span>{new Date(entry.atMs).toLocaleTimeString()}</span>
+                <span>{teamInfo(entry.username).emblem} {entry.username}</span>
+                <span className="score-log-reason">{entry.reason}</span>
+                <strong className={entry.points >= 0 ? 'log-plus' : 'log-minus'}>
+                  {entry.points >= 0 ? '+' : ''}{entry.points}
+                </strong>
+              </div>
+            ))}
+            {!data?.scoreLog?.length && <p className="form-hint">Aucun point attribué pour l’instant.</p>}
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

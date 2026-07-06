@@ -1,3 +1,5 @@
+import { gameAction } from './api.js';
+
 export function isNotificationSupported() {
   return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
 }
@@ -70,34 +72,8 @@ export async function subscribeToPush() {
 export async function saveSubscription(user, subscription) {
   const subJson = subscription.toJSON();
   const id = await subscriptionId(subJson.endpoint);
-
-  const idToken = await user.getIdToken();
-  const res = await fetch('/api/save-subscription', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${idToken}`,
-    },
-    body: JSON.stringify({
-      id,
-      subscription: subJson,
-      userAgent: navigator.userAgent,
-    }),
-  });
-
-  const text = await res.text();
-  let data = {};
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    throw new Error(`Subscription save returned non-JSON response (${res.status}): ${text.slice(0, 120)}`);
-  }
-
-  if (!res.ok || !data.ok) {
-    throw new Error(data.error || `Subscription save failed: ${res.status}`);
-  }
-
-  return data.id || id;
+  await gameAction(user, 'subscription', { id, subscription: subJson });
+  return id;
 }
 
 export async function getExistingSubscription() {
@@ -112,8 +88,8 @@ export async function getExistingSubscription() {
 
 export async function sendLocalTestNotification() {
   const registration = await navigator.serviceWorker.ready;
-  await registration.showNotification('Grand Jeu – Test', {
-    body: 'Local notification is working correctly.',
+  await registration.showNotification('L’Olympe – Message des dieux', {
+    body: 'Hermès a bien livré ce message. Les notifications fonctionnent !',
     icon: '/icons/icon.svg',
     badge: '/icons/icon.svg',
   });

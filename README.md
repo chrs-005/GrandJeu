@@ -1,138 +1,71 @@
-# Grand Jeu
+# L'Olympe — Le Grand Jeu des Dieux
 
-A Progressive Web App (PWA) with Firebase Auth, Firestore RBAC, and Web Push notifications — deployable fully on Vercel.
+PWA de grand jeu scout sur le thème de la mythologie grecque. 5 équipes se connectent sur
+leurs téléphones (iPhone, app installée sur l'écran d'accueil), l'admin pilote tout depuis la
+« Console des Dieux » : il lance des défis, les téléphones reçoivent une notification push et
+le défi apparaît instantanément dans l'app.
 
-## Tech Stack
+## Les défis
 
-- **Frontend:** React + Vite + React Router
-- **Auth & DB:** Firebase Auth (email/password) + Firestore
-- **Push notifications:** Web Push API + `web-push` package
-- **Backend:** Vercel serverless functions (`/api`)
-- **PWA:** `vite-plugin-pwa` with custom service worker
+| Défi | Dieu | Mécanique |
+|---|---|---|
+| 🏃 **La Course d'Hermès** | Hermès | Le plus de pas dans le temps imparti (capteur de mouvement). Le classement est **voilé dans la dernière ligne droite**, points au classement automatiques. |
+| 🔮 **L'Oracle de Delphes** | La Pythie | Quiz synchronisé style Kahoot. Questions chronométrées, points selon la rapidité, révélation entre chaque question. 2 packs de questions mythologie inclus. |
+| 🐍 **Le Regard de Méduse** | Méduse | Une prime sur la tête d'un scout : chaque équipe doit le photographier pour le « pétrifier ». L'admin valide les photos et attribue les points. |
+| 💪 **Les Travaux d'Héraclès** | Héraclès | Missions photo (« photo de l'équipe en pyramide humaine »…). Presets inclus + missions personnalisées. Validation admin. |
+| 🎨 **Le Défi des Muses** | Les Muses | Style Gartic Phone : chaque équipe dessine un sujet, puis devine le dessin d'une autre équipe. L'admin voit les paires sujet/dessin/réponse et note. |
+| 🦁 **L'Énigme du Sphinx** | Le Sphinx | Énigme texte à réponse libre, vérifiée automatiquement (accents/majuscules ignorés). Bonus premier arrivé. **Parfait pour les énigmes de lieux du jeu de piste.** |
 
----
+Plus : classement permanent « Mont Olympe », carte GPS des équipes en temps réel,
+notifications push libres, ajustement manuel des scores, historique des points.
 
-## Setup Guide
+## Les équipes
 
-### 1. Create a Firebase project
+Chaque compte équipe est le champion d'un dieu (couleur + emblème dans l'app) :
+`faucon` → Zeus, `leopard` → Artémis, `panda` → Athéna, `requin` → Poséidon, `bison` → Arès.
+(Mapping dans `src/config/gameConfig.js`.)
 
-1. Go to [Firebase Console](https://console.firebase.google.com/) → **Add project**.
-2. Enable **Email/Password** sign-in: Authentication → Sign-in method → Email/Password → Enable.
-3. Create a **Firestore database**: Firestore → Create database → Start in production mode.
-4. Apply Firestore rules from `firestore.rules` in the Firebase Console (Firestore → Rules).
+## Tech
 
-### 2. Create a Firebase Web App and copy config
+- **Frontend :** React + Vite + `vite-plugin-pwa` (installable iOS ≥ 16.4)
+- **Auth & DB :** Firebase Auth (comptes équipe `xxx@grandjeu.local`) + Firestore
+- **Backend :** 2 fonctions serverless Vercel — `api/game.js` (joueurs) et `api/admin.js` (admin) —
+  avec cache mémoire pour rester sous le quota gratuit Firestore malgré le polling
+- **Push :** Web Push (VAPID) via `web-push`
 
-Firebase Console → Project Settings → Your apps → Add app (Web) → copy the config values.
-
-### 3. Generate VAPID keys
-
-```bash
-npm run generate-vapid
-```
-
-Copy the three keys printed in the terminal.
-
-### 4. Configure environment variables
-
-Copy `.env.example` to `.env.local` for local development and fill in all values:
-
-```bash
-cp .env.example .env.local
-```
-
-### 5. Deploy to Vercel
-
-1. Push this repository to GitHub.
-2. Import the repo in [Vercel](https://vercel.com/).
-3. Set **Framework preset**: `Vite`
-4. Set **Build command**: `npm run build`
-5. Set **Output directory**: `dist`
-6. Add **all environment variables** from `.env.example` in Vercel Dashboard → Project → Settings → Environment Variables.
-7. Deploy.
-
-### 6. Create your first admin
-
-1. Open the deployed app and sign up / log in with your email.
-2. Go to **Firebase Console → Firestore → `users` collection → your document**.
-3. Edit the `role` field from `"user"` to `"admin"`.
-4. Refresh the app — the **Go to Admin page** button will appear.
-
----
-
-## Vercel Settings
-
-| Setting           | Value           |
-|-------------------|-----------------|
-| Framework preset  | Vite            |
-| Install command   | `npm install`   |
-| Build command     | `npm run build` |
-| Output directory  | `dist`          |
-
----
-
-## Testing the Full Flow
-
-1. Open the app URL in a browser.
-2. Sign in as a normal user → `/app`.
-3. Click **Enable notifications** → grant permission.
-4. Click **Send local test notification** to verify permission works.
-5. Sign in as admin (role set in Firestore) → **Go to Admin page** → `/admin`.
-6. Type a title and message → **Send to all users**.
-7. Devices with active subscriptions receive the push notification.
-8. The admin UI shows sent/failed/removed counts.
-
----
-
-## iOS / iPhone Push Notifications
-
-> Web Push on iPhone **only works when the app is installed to the Home Screen**.
-
-Steps for iPhone users:
-1. Open the app URL in **Safari**.
-2. Tap the **Share** button → **Add to Home Screen**.
-3. Open the app from the Home Screen icon.
-4. Sign in and tap **Enable notifications**.
-5. Grant permission when prompted.
-6. Test admin push from the `/admin` page.
-
-**Requirements:** iOS 16.4+, HTTPS (Vercel provides this automatically).
-
----
-
-## Project Structure
+### Modèle Firestore
 
 ```
-/src
-  /auth          AuthContext, ProtectedRoute, AdminRoute
-  /firebase      Firebase client init
-  /pages         Login, UserApp, Admin
-  /services      Push notification helpers
-  App.jsx
-  main.jsx
-  styles.css
-
-/api
-  send-notification.js   Vercel serverless function
-
-/scripts
-  generate-vapid.js      VAPID key generator
-
-/public
-  sw.js                  Custom service worker (push + notificationclick)
-  /icons/icon.svg
-
-firestore.rules
-.env.example
+users/{uid}                      profil équipe + location + pushSubscriptions/
+gameState/current                { challengeId, type }   ← défi affiché chez les équipes
+gameState/scores                 { teams: { uid: { username, score } } }
+challenges/{id}                  { type, status, startAtMs, endAtMs, config, board }
+challenges/{id}/media/{uid}      photos & dessins (data URLs JPEG compressés < 900 Ko)
+scoreLog/*                       historique des attributions de points
 ```
 
----
+Les clients ne lisent Firestore qu'à travers l'API (Admin SDK) — seuls `users/{uid}` et ses
+`pushSubscriptions` sont accessibles côté client (voir `firestore.rules`).
 
-## First Admin — Manual Step Required
+## Setup (identique au POC)
 
-The client-side code **never** sets `role: "admin"`. The first admin must be created manually:
+1. Projet Firebase : Auth Email/Password activé + Firestore + règles `firestore.rules`.
+2. `npm run generate-vapid` → copier les 3 clés.
+3. `.env` d'après `.env.example` (Firebase web config, VAPID, service account admin).
+4. `npm run seed-users` → crée les comptes de `data/users.json` (admin + 5 équipes).
+5. Déploiement Vercel : framework Vite, build `npm run build`, output `dist`,
+   toutes les variables d'environnement de `.env.example`.
 
-1. Sign up in the app (this creates `users/{uid}` with `role: "user"`).
-2. In Firebase Console → Firestore → `users/{uid}` → change `role` to `"admin"`.
+## Jour J — checklist admin
 
-Subsequent admin promotions should go through a trusted backend script or Firebase Console only.
+1. Chaque équipe : ouvrir l'URL dans **Safari** → Partager → **« Sur l'écran d'accueil »** →
+   ouvrir depuis l'icône → se connecter → accomplir les **Rituels** (notifications + GPS).
+2. Vérifier sur `/admin` que les 5 équipes apparaissent sur la carte.
+3. Tester une notification (« Test sur moi » puis « Envoyer à tous »).
+4. Lancer les défis au fil du jeu depuis « Lancer un défi ». Chaque lancement envoie
+   automatiquement un push thématique et affiche le défi chez les équipes.
+5. Pour les défis photo/dessin : juger dans « Défi en cours » avec les boutons +100/+70/+50/+30.
+6. « Retirer de l'écran des équipes » ramène tout le monde au Mont Olympe.
+
+**Notes iOS :** les notifications push exigent l'app installée sur l'écran d'accueil (iOS 16.4+).
+Le compteur de pas utilise l'accéléromètre : le téléphone doit rester en main, app ouverte.

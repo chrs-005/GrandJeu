@@ -14,14 +14,14 @@ export default defineConfig({
       // We register the SW manually in notifications.js, so disable auto-register
       injectRegister: null,
       manifest: {
-        name: 'Grand Jeu',
-        short_name: 'GrandJeu',
-        description: 'Grand Jeu – push notification foundation',
+        name: "L'Olympe — Le Grand Jeu des Dieux",
+        short_name: "L'Olympe",
+        description: 'Grand jeu scout sur le thème de la mythologie grecque',
         display: 'standalone',
         start_url: '/',
         scope: '/',
-        theme_color: '#111827',
-        background_color: '#ffffff',
+        theme_color: '#0b0f1d',
+        background_color: '#0b0f1d',
         icons: [
           {
             src: '/icons/icon.svg',
