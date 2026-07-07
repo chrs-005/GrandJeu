@@ -92,6 +92,22 @@ export const CHALLENGE_META = {
     playerIntro:
       'Les neuf Muses réclament une œuvre. Dessinez ce qu’elles vous inspirent — puis, telle une fresque antique, l’œuvre d’une autre équipe vous parviendra : saurez-vous la déchiffrer ?',
   },
+  guide: {
+    god: 'Ariane',
+    icon: '🧭',
+    title: 'Le Fil d’Ariane',
+    tagline: 'Suivez le fil jusqu’au bout du labyrinthe.',
+    playerIntro:
+      'Ariane a tendu son fil à travers le labyrinthe du monde. Suivez la flèche et sentez le fil chauffer à mesure que vous approchez. Les premières équipes arrivées gagnent la faveur des dieux !',
+  },
+  territory: {
+    god: 'Arès',
+    icon: '⚔️',
+    title: 'La Conquête d’Arès',
+    tagline: 'Marchez, encerclez, conquérez.',
+    playerIntro:
+      'Arès offre le monde à qui saura le prendre ! Marchez pour tracer votre sillage, puis revenez sur vos terres pour capturer toute la zone encerclée. Volez les terres des autres — le plus grand empire l’emporte.',
+  },
   riddle: {
     god: 'Le Sphinx',
     icon: '🦁',

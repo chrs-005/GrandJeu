@@ -22,6 +22,8 @@ import TriviaChallenge from '../components/challenges/TriviaChallenge';
 import PhotoChallenge from '../components/challenges/PhotoChallenge';
 import DrawGuessChallenge from '../components/challenges/DrawGuessChallenge';
 import RiddleChallenge from '../components/challenges/RiddleChallenge';
+import GuideChallenge from '../components/challenges/GuideChallenge';
+import TerritoryChallenge from '../components/challenges/TerritoryChallenge';
 
 const CHALLENGE_COMPONENTS = {
   steps: StepsChallenge,
@@ -30,6 +32,8 @@ const CHALLENGE_COMPONENTS = {
   photo: PhotoChallenge,
   drawguess: DrawGuessChallenge,
   riddle: RiddleChallenge,
+  guide: GuideChallenge,
+  territory: TerritoryChallenge,
 };
 
 function isStandalone() {

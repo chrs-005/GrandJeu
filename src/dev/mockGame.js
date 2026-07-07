@@ -1,6 +1,7 @@
 // Dev-only mock game states: open the app with ?mock=<type> to preview any
 // challenge UI without the serverless backend (vite dev has no /api runtime).
-// Types: hub, steps, steps-veiled, trivia, bounty, photo, drawguess, drawguess-guess, riddle
+// Types: hub, steps, steps-veiled, trivia, bounty, photo, drawguess,
+// drawguess-guess, riddle, guide, territory
 
 const TEAM_FIXTURES = [
   { uid: 'u-faucon', username: 'faucon', score: 320 },
@@ -139,6 +140,71 @@ export function buildMockGame(type) {
         solvedCount: 1,
       };
       break;
+    case 'guide':
+      base.challenge = {
+        ...common,
+        type: 'guide',
+        endAtMs: now + 1_500_000,
+        targetLat: 33.8956,
+        targetLng: 35.5041,
+        radiusM: 30,
+        arrived: null,
+        arrivals: [
+          { uid: 'u-requin', username: 'requin', rank: 1, points: 100, atMs: now - 120_000 },
+        ],
+        mockPos: { lat: 33.8938, lng: 35.5018, accuracy: 8 },
+      };
+      break;
+    case 'territory': {
+      const cols = 40;
+      const rows = 40;
+      const field = {
+        centerLat: 33.8938,
+        centerLng: 35.5018,
+        cellSizeM: 12,
+        cols,
+        rows,
+        latPerCell: 12 / 111320,
+        lngPerCell: 12 / (111320 * Math.cos((33.8938 * Math.PI) / 180)),
+        originLat: 33.8938 + (rows / 2) * (12 / 111320),
+        originLng: 35.5018 - (cols / 2) * (12 / (111320 * Math.cos((33.8938 * Math.PI) / 180))),
+      };
+      const grid = Array(cols * rows).fill('.');
+      const blob = (cx, cy, r, ch) => {
+        for (let y = cy - r; y <= cy + r; y++) {
+          for (let x = cx - r; x <= cx + r; x++) {
+            if (x >= 0 && x < cols && y >= 0 && y < rows && (x - cx) ** 2 + (y - cy) ** 2 <= r * r) {
+              grid[y * cols + x] = ch;
+            }
+          }
+        }
+      };
+      blob(10, 12, 6, '0');
+      blob(28, 10, 5, '1');
+      blob(20, 28, 7, '2');
+      blob(32, 30, 4, '3');
+      blob(8, 32, 3, '4');
+      const trail = [];
+      for (let i = 0; i < 10; i++) trail.push((12 + i) * cols + (16 + i));
+      base.challenge = {
+        ...common,
+        type: 'territory',
+        endAtMs: now + 900_000,
+        field,
+        grid: grid.join(''),
+        trails: { 'u-faucon': trail },
+        teams: [
+          { uid: 'u-faucon', index: 0, username: 'faucon', cells: 113 },
+          { uid: 'u-panda', index: 2, username: 'panda', cells: 149 },
+          { uid: 'u-requin', index: 1, username: 'requin', cells: 81 },
+          { uid: 'u-leopard', index: 3, username: 'leopard', cells: 49 },
+          { uid: 'u-bison', index: 4, username: 'bison', cells: 29 },
+        ],
+        ownIndex: 0,
+        mockPos: { lat: 33.8938, lng: 35.5018 },
+      };
+      break;
+    }
     default:
       break; // hub: no challenge, just the Olympus board
   }

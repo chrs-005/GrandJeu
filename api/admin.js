@@ -10,6 +10,7 @@ import {
   sendError,
   withErrorHandling,
 } from './_lib/core.js';
+import { buildField, countCells, EMPTY_CELL } from './_lib/territory.js';
 
 const DEFAULT_RANK_POINTS = [100, 70, 50, 35, 20];
 
@@ -20,6 +21,8 @@ const PUSH_BY_TYPE = {
   photo: { title: '💪 Les Travaux d’Héraclès', body: 'Une nouvelle épreuve héroïque vous attend. Ouvrez l’app !' },
   drawguess: { title: '🎨 Le Défi des Muses', body: 'Les Muses réclament une œuvre. À vos pinceaux !' },
   riddle: { title: '🦁 L’Énigme du Sphinx', body: 'Le Sphinx bloque votre route. Résolvez son énigme !' },
+  guide: { title: '🧭 Le Fil d’Ariane', body: 'Un lieu secret vous appelle… Suivez le fil, il chauffe !' },
+  territory: { title: '⚔️ La Conquête d’Arès', body: 'À vos frontières ! Marchez, encerclez, conquérez le terrain.' },
 };
 
 function num(value, fallback, min, max) {
@@ -144,6 +147,59 @@ function buildChallenge(type, cfg, teamUids) {
       };
     }
 
+    case 'guide': {
+      const durationSeconds = num(cfg.durationSeconds, 1800, 60, 14400);
+      const lat = Number(cfg.lat);
+      const lng = Number(cfg.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        throw new Error('Placez la destination sur la carte.');
+      }
+      return {
+        startAtMs,
+        endAtMs: startAtMs + durationSeconds * 1000,
+        config: {
+          durationSeconds,
+          lat,
+          lng,
+          radiusM: num(cfg.radiusM, 30, 10, 500),
+          rankPoints: Array.isArray(cfg.rankPoints) && cfg.rankPoints.length
+            ? cfg.rankPoints.map((p) => num(p, 0, 0, 1000))
+            : DEFAULT_RANK_POINTS,
+        },
+      };
+    }
+
+    case 'territory': {
+      const durationSeconds = num(cfg.durationSeconds, 1200, 60, 14400);
+      const centerLat = Number(cfg.centerLat);
+      const centerLng = Number(cfg.centerLng);
+      if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng)) {
+        throw new Error('Placez le champ de bataille sur la carte.');
+      }
+      const cellSizeM = num(cfg.cellSizeM, 12, 4, 60);
+      const cols = num(cfg.size, 40, 10, 80);
+      const rows = cols;
+      const field = buildField(centerLat, centerLng, cellSizeM, cols, rows);
+      const teamIndex = {};
+      const teamNames = {};
+      teamUids.forEach(({ uid, username }, i) => {
+        teamIndex[uid] = i;
+        teamNames[uid] = username;
+      });
+      return {
+        startAtMs,
+        endAtMs: startAtMs + durationSeconds * 1000,
+        config: {
+          durationSeconds,
+          field,
+          teamIndex,
+          teamNames,
+          rankPoints: DEFAULT_RANK_POINTS,
+        },
+        extra: { grid: EMPTY_CELL.repeat(cols * rows), trails: {}, lastCell: {} },
+      };
+    }
+
     default:
       throw new Error(`Type de défi inconnu: ${type}`);
   }
@@ -234,6 +290,7 @@ async function handlePost(req, res, verified) {
         endAtMs: built.endAtMs,
         config: built.config,
         board: {},
+        ...(built.extra || {}),
         createdBy: decoded.uid,
         createdAt: FieldValue.serverTimestamp(),
       };
@@ -263,17 +320,36 @@ async function handlePost(req, res, verified) {
       const updates = { status: 'ended', endAtMs: Math.min(challenge.endAtMs, now) };
       const awards = [];
 
-      // Steps: award ranking points automatically when requested.
+      // Ranked challenges: award ranking points automatically when requested.
+      let ranking = null;
+      let awardReason = '';
       if (body.award && challenge.type === 'steps') {
-        const ranking = Object.entries(challenge.board || {})
-          .map(([uid, entry]) => ({ uid, username: entry.username, steps: entry.steps || 0 }))
-          .sort((a, b) => b.steps - a.steps);
+        awardReason = 'Course d’Hermès';
+        ranking = Object.entries(challenge.board || {})
+          .map(([uid, entry]) => ({ uid, username: entry.username, metric: entry.steps || 0 }))
+          .sort((a, b) => b.metric - a.metric);
+      }
+      if (body.award && challenge.type === 'territory') {
+        awardReason = 'Conquête d’Arès';
+        const teamIndex = challenge.config.teamIndex || {};
+        const counts = countCells(challenge.grid || '', Object.keys(teamIndex).length);
+        ranking = Object.entries(teamIndex)
+          .map(([uid, idx]) => ({
+            uid,
+            username: challenge.config.teamNames?.[uid] || uid,
+            metric: counts[idx] || 0,
+          }))
+          .filter((entry) => entry.metric > 0)
+          .sort((a, b) => b.metric - a.metric);
+      }
+      if (ranking) {
         const rankPoints = challenge.config.rankPoints || DEFAULT_RANK_POINTS;
         for (let i = 0; i < ranking.length; i++) {
           const points = rankPoints[i] || 0;
           if (points > 0) {
             awards.push({ ...ranking[i], points });
             updates[`board.${ranking[i].uid}.points`] = points;
+            updates[`board.${ranking[i].uid}.username`] = ranking[i].username;
           }
         }
       }
@@ -281,7 +357,7 @@ async function handlePost(req, res, verified) {
       await ref.update(updates);
       invalidateStateCache();
       for (const award of awards) {
-        await addPoints(db, award.uid, award.username, award.points, 'Course d’Hermès', challenge.id);
+        await addPoints(db, award.uid, award.username, award.points, awardReason, challenge.id);
       }
       return res.status(200).json({ ok: true, awards });
     }

@@ -9,6 +9,7 @@ import {
   sendError,
   withErrorHandling,
 } from './_lib/core.js';
+import { haversineMeters, latLngToCell, applyMove, countCells } from './_lib/territory.js';
 
 // Drawings/photos are immutable once submitted, so cache media reads (guess phase).
 const mediaCache = new Map(); // `${challengeId}:${uid}` -> { data, ts }
@@ -138,6 +139,51 @@ async function buildChallengeView(db, challenge, uid) {
         }
       }
       return view;
+    }
+
+    case 'guide': {
+      const arrivals = Object.entries(board)
+        .filter(([, entry]) => entry.arrivedAtMs)
+        .map(([id, entry]) => ({
+          uid: id,
+          username: entry.username,
+          rank: entry.rank,
+          points: entry.points || 0,
+          atMs: entry.arrivedAtMs,
+        }))
+        .sort((a, b) => a.atMs - b.atMs);
+      return {
+        ...base,
+        targetLat: config.lat,
+        targetLng: config.lng,
+        radiusM: config.radiusM,
+        arrived: own?.arrivedAtMs
+          ? { atMs: own.arrivedAtMs, rank: own.rank, points: own.points || 0 }
+          : null,
+        arrivals,
+      };
+    }
+
+    case 'territory': {
+      const field = config.field;
+      const teamIndex = config.teamIndex || {};
+      const grid = challenge.grid || '';
+      const counts = countCells(grid, Object.keys(teamIndex).length);
+      return {
+        ...base,
+        field,
+        grid,
+        trails: challenge.trails || {},
+        teams: Object.entries(teamIndex)
+          .map(([id, idx]) => ({
+            uid: id,
+            index: idx,
+            username: config.teamNames?.[id] || id,
+            cells: counts[idx] || 0,
+          }))
+          .sort((a, b) => b.cells - a.cells),
+        ownIndex: teamIndex[uid] ?? null,
+      };
     }
 
     case 'riddle':
@@ -387,6 +433,78 @@ async function handlePost(req, res) {
         guessAtMs: now,
       });
       return res.status(200).json({ ok: true });
+    }
+
+    // -- guide (compass hunt) -----------------------------------------------------
+    case 'arrive': {
+      const { latitude, longitude, accuracy } = body;
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+        return sendError(res, 400, 'Position invalide.');
+      }
+      const ref = db.collection('challenges').doc(String(body.challengeId || ''));
+      // Transaction so two teams arriving together still get distinct ranks.
+      const result = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) throw new Error('Défi introuvable.');
+        const challenge = { id: snap.id, ...snap.data() };
+        if (challenge.type !== 'guide') throw new Error('Mauvais type de défi.');
+        assertRunning(challenge, now);
+        const previous = challenge.board?.[uid];
+        if (previous?.arrivedAtMs) {
+          return { alreadyArrived: true, rank: previous.rank, points: previous.points || 0 };
+        }
+        const cfg = challenge.config;
+        const distance = haversineMeters(latitude, longitude, cfg.lat, cfg.lng);
+        const tolerance = Math.min(Math.max(Number(accuracy) || 0, 10), 30);
+        if (distance > cfg.radiusM + tolerance) {
+          return { tooFar: true, distance: Math.round(distance) };
+        }
+        const rank = Object.values(challenge.board || {}).filter((e) => e.arrivedAtMs).length + 1;
+        const rankPoints = cfg.rankPoints || [];
+        const points = rankPoints[rank - 1] || 0;
+        tx.update(ref, {
+          [`board.${uid}`]: { username, arrivedAtMs: now, rank, points },
+        });
+        return { arrived: true, rank, points };
+      });
+      if (result.arrived) {
+        invalidateStateCache();
+        if (result.points > 0) {
+          await addPoints(db, uid, username, result.points, 'Fil d’Ariane', body.challengeId);
+        }
+      }
+      return res.status(200).json({ ok: true, ...result });
+    }
+
+    // -- territory (walking paper.io) ----------------------------------------------
+    case 'territory-move': {
+      const { latitude, longitude } = body;
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+        return sendError(res, 400, 'Position invalide.');
+      }
+      const ref = db.collection('challenges').doc(String(body.challengeId || ''));
+      const result = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) throw new Error('Défi introuvable.');
+        const challenge = { id: snap.id, ...snap.data() };
+        if (challenge.type !== 'territory') throw new Error('Mauvais type de défi.');
+        if (challenge.status !== 'active' || now >= challenge.endAtMs) return { ended: true };
+        if (now < challenge.startAtMs) return { waiting: true };
+        const cell = latLngToCell(challenge.config.field, latitude, longitude);
+        if (cell < 0) return { outside: true };
+        const moved = applyMove(challenge, uid, cell);
+        if (!moved) throw new Error('Équipe inconnue.');
+        tx.update(ref, {
+          grid: moved.grid,
+          [`trails.${uid}`]: moved.trail,
+          [`lastCell.${uid}`]: moved.lastCell,
+          [`board.${uid}`]: { username, updatedAtMs: now },
+        });
+        return { captured: moved.captured };
+      });
+      // No cache invalidation: the 2.5s state cache keeps polling cheap and the
+      // grid is never more than a couple seconds stale on other phones.
+      return res.status(200).json({ ok: true, ...result });
     }
 
     // -- riddle -------------------------------------------------------------------

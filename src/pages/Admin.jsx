@@ -6,22 +6,12 @@ import { useNow, formatRemaining } from '../hooks/useNow';
 import { teamInfo, challengeMeta, CHALLENGE_META, RANK_POINTS } from '../config/gameConfig';
 import { TRIVIA_PACKS } from '../data/triviaPacks';
 import { DRAWING_PROMPTS, PHOTO_MISSIONS, RIDDLE_PRESETS } from '../data/presets';
+import { previewField, fieldBounds } from '../utils/geo';
+import SatMap from '../components/SatMap';
 
-const MAP_ZOOM = 16;
-const TILE_SIZE = 256;
 const QUICK_POINTS = [100, 70, 50, 30];
-
-// ---------------------------------------------------------------------------
-// Map (OpenStreetMap tiles, from the proof of concept)
-// ---------------------------------------------------------------------------
-function latLngToWorld(latitude, longitude, zoom) {
-  const sinLat = Math.sin((latitude * Math.PI) / 180);
-  const scale = TILE_SIZE * 2 ** zoom;
-  return {
-    x: ((longitude + 180) / 360) * scale,
-    y: (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * scale,
-  };
-}
+const RANKED_TYPES = ['steps', 'territory'];
+const FALLBACK_CENTER = { lat: 33.8938, lng: 35.5018 };
 
 function formatAge(updatedAt) {
   if (!updatedAt) return '?';
@@ -30,81 +20,62 @@ function formatAge(updatedAt) {
   return `${Math.round(seconds / 60)}m`;
 }
 
-function LocationMap({ locations }) {
-  const ref = useRef(null);
-  const [size, setSize] = useState({ width: 0, height: 0 });
-
-  useEffect(() => {
-    if (!ref.current) return undefined;
-    const observer = new ResizeObserver(([entry]) => {
-      setSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+function teamMarkers(locations) {
+  return (locations || [])
+    .filter((l) => l.role !== 'admin')
+    .map((l) => {
+      const info = teamInfo(l.username);
+      return {
+        id: l.uid,
+        lat: l.latitude,
+        lng: l.longitude,
+        emblem: info.emblem,
+        color: info.color,
+        label: `${l.username} — il y a ${formatAge(l.updatedAt)}`,
+      };
     });
-    observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
+}
 
-  const center = useMemo(() => {
-    if (!locations.length) return { latitude: 33.8938, longitude: 35.5018 };
-    return {
-      latitude: locations.reduce((sum, item) => sum + item.latitude, 0) / locations.length,
-      longitude: locations.reduce((sum, item) => sum + item.longitude, 0) / locations.length,
-    };
-  }, [locations]);
+function locationsCenter(locations) {
+  const markers = teamMarkers(locations);
+  if (!markers.length) return FALLBACK_CENTER;
+  return {
+    lat: markers.reduce((sum, m) => sum + m.lat, 0) / markers.length,
+    lng: markers.reduce((sum, m) => sum + m.lng, 0) / markers.length,
+  };
+}
 
-  const centerWorld = latLngToWorld(center.latitude, center.longitude, MAP_ZOOM);
-  const tileCount = 2 ** MAP_ZOOM;
-  const tiles = [];
-  if (size.width && size.height) {
-    const minTileX = Math.floor((centerWorld.x - size.width / 2) / TILE_SIZE);
-    const maxTileX = Math.floor((centerWorld.x + size.width / 2) / TILE_SIZE);
-    const minTileY = Math.floor((centerWorld.y - size.height / 2) / TILE_SIZE);
-    const maxTileY = Math.floor((centerWorld.y + size.height / 2) / TILE_SIZE);
-    for (let x = minTileX; x <= maxTileX; x++) {
-      for (let y = minTileY; y <= maxTileY; y++) {
-        if (y < 0 || y >= tileCount) continue;
-        const wrappedX = ((x % tileCount) + tileCount) % tileCount;
-        tiles.push({
-          key: `${x}:${y}`,
-          src: `https://tile.openstreetmap.org/${MAP_ZOOM}/${wrappedX}/${y}.png`,
-          left: x * TILE_SIZE - centerWorld.x + size.width / 2,
-          top: y * TILE_SIZE - centerWorld.y + size.height / 2,
-        });
-      }
-    }
+// Build the SatMap territory prop from a raw admin challenge doc.
+function adminTerritory(challenge) {
+  const { field, teamIndex, teamNames } = challenge.config;
+  const colors = [];
+  Object.entries(teamIndex || {}).forEach(([uid, idx]) => {
+    colors[idx] = teamInfo(teamNames?.[uid]).color;
+  });
+  const trails = {};
+  Object.entries(challenge.trails || {}).forEach(([uid, cells]) => {
+    trails[uid] = { cells, color: colors[teamIndex?.[uid]] || '#fff' };
+  });
+  return { field, grid: challenge.grid || '', trails, colors };
+}
+
+function territoryCounts(challenge) {
+  const { teamIndex, teamNames } = challenge.config;
+  const grid = challenge.grid || '';
+  const counts = {};
+  for (let i = 0; i < grid.length; i++) {
+    const c = grid[i];
+    if (c !== '.') counts[c] = (counts[c] || 0) + 1;
   }
-
-  return (
-    <div className="location-map" ref={ref}>
-      {tiles.map((tile) => (
-        <img alt="" className="map-tile" key={tile.key} src={tile.src} style={{ left: tile.left, top: tile.top }} />
-      ))}
-      {locations.map((location) => {
-        const world = latLngToWorld(location.latitude, location.longitude, MAP_ZOOM);
-        const info = teamInfo(location.username);
-        return (
-          <div
-            className="map-marker"
-            key={location.uid}
-            style={{
-              left: world.x - centerWorld.x + size.width / 2,
-              top: world.y - centerWorld.y + size.height / 2,
-              borderColor: info.color,
-            }}
-            title={`${location.username} — il y a ${formatAge(location.updatedAt)}`}
-          >
-            <span>{info.emblem}</span>
-          </div>
-        );
-      })}
-      {!locations.length && <div className="map-empty">Aucune position partagée</div>}
-    </div>
-  );
+  return Object.entries(teamIndex || {})
+    .map(([uid, idx]) => ({ uid, username: teamNames?.[uid] || uid, cells: counts[String(idx)] || 0 }))
+    .sort((a, b) => b.cells - a.cells);
 }
 
 // ---------------------------------------------------------------------------
 // Launch forms
 // ---------------------------------------------------------------------------
-function LaunchForm({ type, onLaunch, busy }) {
+function LaunchForm({ type, onLaunch, busy, locations }) {
   const [stepDuration, setStepDuration] = useState(120);
   const [hideFinal, setHideFinal] = useState(45);
   const [packId, setPackId] = useState(TRIVIA_PACKS[0].id);
@@ -120,6 +91,15 @@ function LaunchForm({ type, onLaunch, busy }) {
   const [riddleAnswers, setRiddleAnswers] = useState(RIDDLE_PRESETS[0].answers.join(', '));
   const [riddlePoints, setRiddlePoints] = useState(100);
   const [riddleMinutes, setRiddleMinutes] = useState(10);
+  const [guidePin, setGuidePin] = useState(null);
+  const [guideRadius, setGuideRadius] = useState(30);
+  const [guideMinutes, setGuideMinutes] = useState(30);
+  const [terrCenter, setTerrCenter] = useState(null);
+  const [terrCell, setTerrCell] = useState(12);
+  const [terrSize, setTerrSize] = useState(40);
+  const [terrMinutes, setTerrMinutes] = useState(20);
+
+  const mapCenter = useMemo(() => locationsCenter(locations), [locations]);
 
   function launch() {
     switch (type) {
@@ -161,10 +141,27 @@ function LaunchForm({ type, onLaunch, busy }) {
           firstBonus: 50,
           durationSeconds: Number(riddleMinutes) * 60,
         });
+      case 'guide':
+        return onLaunch(type, {
+          lat: guidePin?.lat,
+          lng: guidePin?.lng,
+          radiusM: Number(guideRadius),
+          durationSeconds: Number(guideMinutes) * 60,
+        });
+      case 'territory':
+        return onLaunch(type, {
+          centerLat: terrCenter?.lat,
+          centerLng: terrCenter?.lng,
+          cellSizeM: Number(terrCell),
+          size: Number(terrSize),
+          durationSeconds: Number(terrMinutes) * 60,
+        });
       default:
         return null;
     }
   }
+
+  const missingPin = (type === 'guide' && !guidePin) || (type === 'territory' && !terrCenter);
 
   return (
     <div className="launch-form">
@@ -293,8 +290,84 @@ function LaunchForm({ type, onLaunch, busy }) {
         </div>
       )}
 
-      <button className="btn btn-primary" disabled={busy} onClick={launch} type="button">
-        {busy ? 'Lancement…' : `${challengeMeta(type).icon} Lancer ${challengeMeta(type).title}`}
+      {type === 'guide' && (
+        <div className="form-grid">
+          <p className="form-hint">
+            📍 Touchez la carte pour placer la destination secrète. Les équipes verront une flèche
+            et la distance « chaud/froid » — jamais la carte.
+          </p>
+          <SatMap
+            center={mapCenter}
+            fit="markers"
+            height={300}
+            markers={teamMarkers(locations)}
+            onPick={setGuidePin}
+            pin={guidePin}
+            pinRadiusM={Number(guideRadius)}
+            zoom={16}
+          />
+          <label>
+            Rayon d’arrivée (mètres)
+            <input min="10" max="500" onChange={(e) => setGuideRadius(e.target.value)} type="number" value={guideRadius} />
+          </label>
+          <label>
+            Durée (minutes)
+            <input min="1" max="240" onChange={(e) => setGuideMinutes(e.target.value)} type="number" value={guideMinutes} />
+          </label>
+          <p className="form-hint">Points à l’arrivée : {RANK_POINTS.join(' / ')} (ordre d’arrivée).</p>
+        </div>
+      )}
+
+      {type === 'territory' && (
+        <div className="form-grid">
+          <p className="form-hint">
+            ⚔️ Touchez la carte pour centrer le champ de bataille. Chaque équipe peint le terrain
+            en marchant et capture les zones qu’elle encercle.
+          </p>
+          <SatMap
+            center={mapCenter}
+            fit="markers"
+            height={300}
+            markers={teamMarkers(locations)}
+            onPick={setTerrCenter}
+            rectBounds={
+              terrCenter
+                ? fieldBounds(previewField(terrCenter.lat, terrCenter.lng, Number(terrCell), Number(terrSize), Number(terrSize)))
+                : null
+            }
+            zoom={16}
+          />
+          <label>
+            Taille d’une case (mètres)
+            <select onChange={(e) => setTerrCell(e.target.value)} value={terrCell}>
+              <option value={8}>8 m — précis, petit terrain</option>
+              <option value={12}>12 m — équilibré</option>
+              <option value={16}>16 m — grand terrain</option>
+              <option value={20}>20 m — très grand</option>
+            </select>
+          </label>
+          <label>
+            Grille (cases par côté)
+            <select onChange={(e) => setTerrSize(e.target.value)} value={terrSize}>
+              <option value={30}>30 × 30 (≈ {30 * Number(terrCell)} m de côté)</option>
+              <option value={40}>40 × 40 (≈ {40 * Number(terrCell)} m de côté)</option>
+              <option value={60}>60 × 60 (≈ {60 * Number(terrCell)} m de côté)</option>
+            </select>
+          </label>
+          <label>
+            Durée (minutes)
+            <input min="1" max="240" onChange={(e) => setTerrMinutes(e.target.value)} type="number" value={terrMinutes} />
+          </label>
+          <p className="form-hint">Points au classement final : {RANK_POINTS.join(' / ')}.</p>
+        </div>
+      )}
+
+      <button className="btn btn-primary" disabled={busy || missingPin} onClick={launch} type="button">
+        {missingPin
+          ? '📍 Placez d’abord le point sur la carte'
+          : busy
+            ? 'Lancement…'
+            : `${challengeMeta(type).icon} Lancer ${challengeMeta(type).title}`}
       </button>
     </div>
   );
@@ -323,7 +396,7 @@ function ReviewButtons({ onAward, entryPoints }) {
   );
 }
 
-function ChallengeBoard({ challenge, media, now, onAction, busy }) {
+function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
   const meta = challengeMeta(challenge.type);
   const board = challenge.board || {};
   const entries = Object.entries(board).map(([uid, entry]) => ({ uid, ...entry }));
@@ -343,17 +416,17 @@ function ChallengeBoard({ challenge, media, now, onAction, busy }) {
           </span>
         </div>
         <div className="btn-group">
-          {running && challenge.type === 'steps' && (
+          {running && RANKED_TYPES.includes(challenge.type) && (
             <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onAction('end', { challengeId: challenge.id, award: true })} type="button">
               🏁 Terminer + attribuer les points
             </button>
           )}
-          {running && challenge.type !== 'steps' && (
+          {running && !RANKED_TYPES.includes(challenge.type) && (
             <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onAction('end', { challengeId: challenge.id })} type="button">
               🏁 Terminer maintenant
             </button>
           )}
-          {!running && challenge.type === 'steps' && challenge.status !== 'ended' && (
+          {!running && RANKED_TYPES.includes(challenge.type) && challenge.status !== 'ended' && (
             <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => onAction('end', { challengeId: challenge.id, award: true })} type="button">
               🏆 Attribuer les points du classement
             </button>
@@ -457,6 +530,59 @@ function ChallengeBoard({ challenge, media, now, onAction, busy }) {
             );
           })}
         </div>
+      )}
+
+      {/* Guide (compass hunt) */}
+      {challenge.type === 'guide' && (
+        <>
+          <SatMap
+            center={{ lat: challenge.config.lat, lng: challenge.config.lng }}
+            height={320}
+            markers={teamMarkers(locations)}
+            pin={{ lat: challenge.config.lat, lng: challenge.config.lng }}
+            pinRadiusM={challenge.config.radiusM}
+            zoom={16}
+          />
+          <ol className="mini-board">
+            {entries
+              .filter((entry) => entry.arrivedAtMs)
+              .sort((a, b) => a.arrivedAtMs - b.arrivedAtMs)
+              .map((entry) => (
+                <li key={entry.uid}>
+                  <span>
+                    {entry.rank}. {teamInfo(entry.username).emblem} {entry.username} —{' '}
+                    {new Date(entry.arrivedAtMs).toLocaleTimeString()}
+                  </span>
+                  <strong>+{entry.points} pts</strong>
+                </li>
+              ))}
+            {!entries.some((entry) => entry.arrivedAtMs) && (
+              <li><span>Aucune équipe arrivée pour l’instant.</span></li>
+            )}
+          </ol>
+        </>
+      )}
+
+      {/* Territory */}
+      {challenge.type === 'territory' && (
+        <>
+          <SatMap
+            center={{ lat: challenge.config.field.centerLat, lng: challenge.config.field.centerLng }}
+            fit="territory"
+            height={360}
+            markers={teamMarkers(locations)}
+            territory={adminTerritory(challenge)}
+            zoom={16}
+          />
+          <ol className="mini-board">
+            {territoryCounts(challenge).map((entry, index) => (
+              <li key={entry.uid}>
+                <span>{index + 1}. {teamInfo(entry.username).emblem} {entry.username}</span>
+                <strong>{entry.cells} cases</strong>
+              </li>
+            ))}
+          </ol>
+        </>
       )}
 
       {/* Riddle */}
@@ -595,7 +721,7 @@ export default function Admin() {
                 <input checked={withImages} onChange={(e) => setWithImages(e.target.checked)} type="checkbox" />
                 Charger les images (photos/dessins)
               </label>
-              <ChallengeBoard busy={busy} challenge={challenge} media={data.media} now={now} onAction={runAction} />
+              <ChallengeBoard busy={busy} challenge={challenge} locations={data?.locations || []} media={data.media} now={now} onAction={runAction} />
             </>
           ) : (
             <p className="form-hint">Aucun défi affiché chez les équipes. Lancez-en un ci-dessous !</p>
@@ -618,7 +744,7 @@ export default function Admin() {
             ))}
           </div>
           <p className="form-hint">{challengeMeta(launchType).tagline}</p>
-          <LaunchForm busy={busy} onLaunch={launchChallenge} type={launchType} />
+          <LaunchForm busy={busy} locations={data?.locations || []} onLaunch={launchChallenge} type={launchType} />
         </section>
 
         {/* Scores */}
@@ -663,7 +789,7 @@ export default function Admin() {
         {/* Map */}
         <section className="admin-section">
           <h3 className="section-title">Carte des équipes</h3>
-          <LocationMap locations={data?.locations || []} />
+          <SatMap fit="markers" height={340} markers={teamMarkers(data?.locations || [])} zoom={16} />
           <div className="location-list">
             {(data?.locations || []).map((location) => (
               <div className="location-list-row" key={location.uid}>

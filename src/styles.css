@@ -1296,45 +1296,134 @@ select:focus {
 .log-minus { color: var(--oxide); }
 
 /* --------------------------------------------------------------------------
-   Map
+   Maps (Leaflet, Esri satellite)
    -------------------------------------------------------------------------- */
-.location-map {
+.sat-map {
   background: var(--ink);
-  border: 2px solid var(--ink);
+  border: 3px solid var(--ink);
   border-radius: 6px;
-  height: 320px;
+  box-shadow: 0 0 0 1px rgba(236, 217, 168, 0.35);
   overflow: hidden;
-  position: relative;
+  width: 100%;
+  z-index: 0;
 }
 
-.map-tile {
-  filter: sepia(0.45) saturate(0.75) brightness(0.92);
-  height: 256px;
-  position: absolute;
-  width: 256px;
+.sat-map .leaflet-control-attribution {
+  background: rgba(23, 16, 10, 0.6);
+  color: rgba(236, 217, 168, 0.7);
+  font-size: 9px;
 }
 
-.map-marker {
+.sat-map .leaflet-control-attribution a { color: rgba(236, 217, 168, 0.7); }
+
+.sat-map .leaflet-bar a {
+  background: var(--ink);
+  border-color: rgba(236, 217, 168, 0.4);
+  color: var(--cream);
+}
+
+.sat-marker-wrap { background: transparent; border: none; }
+
+.sat-marker {
   align-items: center;
-  background: var(--clay-bright);
-  border: 2px solid var(--ink);
+  background: rgba(23, 16, 10, 0.85);
+  border: 2px solid var(--cream);
   border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
   display: flex;
-  font-size: 15px;
-  height: 32px;
-  justify-content: center;
-  margin: -16px 0 0 -16px;
-  position: absolute;
-  width: 32px;
-  z-index: 2;
-}
-
-.map-empty {
-  align-items: center;
-  color: var(--cream-dim);
-  display: flex;
+  font-size: 14px;
   height: 100%;
   justify-content: center;
+  width: 100%;
+}
+
+.sat-marker-big { font-size: 18px; }
+
+.territory-overlay { image-rendering: pixelated; }
+
+/* --------------------------------------------------------------------------
+   Guide (compass hunt)
+   -------------------------------------------------------------------------- */
+.guide-challenge {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.compass-hero {
+  align-items: center;
+  background: var(--ink-band);
+  border: 3px solid var(--ink);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 2px rgba(236, 217, 168, 0.35), inset 0 0 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+  min-height: 280px;
+  padding: 20px;
+  text-align: center;
+  transition: background 1s ease;
+}
+
+.compass-arrow {
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+  height: 140px;
+  transition: transform 0.4s ease;
+  width: 140px;
+}
+
+.compass-cardinal {
+  color: var(--ink);
+  font-family: var(--font-greek);
+  font-size: 76px;
+  line-height: 1.1;
+  text-shadow: 0 2px 0 rgba(236, 217, 168, 0.5);
+}
+
+.compass-distance {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(236, 217, 168, 0.5);
+}
+
+.compass-warmth {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.compass-waiting {
+  color: var(--cream-dim);
+  font-style: italic;
+}
+
+.compass-waiting span { font-size: 34px; }
+
+.guide-arrived {
+  background: var(--cream);
+  border: 2px solid var(--success);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.guide-arrived-icon { font-size: 44px; }
+
+/* --------------------------------------------------------------------------
+   Territory
+   -------------------------------------------------------------------------- */
+.territory-challenge {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .location-list { margin-top: 8px; }
