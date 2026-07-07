@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { APP_NAME, APP_SUBTITLE } from '../config/gameConfig';
+import friezeImg from '../assets/frieze.jpg';
 
 const USERNAME_DOMAIN = 'grandjeu.local';
 
@@ -58,8 +59,8 @@ export default function Login() {
 
   return (
     <div className="page-center">
-      <div className="card" style={{ maxWidth: 400, width: '100%', textAlign: 'center' }}>
-        <div style={{ fontSize: 44, marginBottom: 4 }}>🏛️</div>
+      <div className="card login-card" style={{ maxWidth: 420, width: '100%', textAlign: 'center' }}>
+        <img alt="Procession des dieux" className="login-frieze" src={friezeImg} />
         <h1 className="logo-title">{APP_NAME}</h1>
         <p className="subtitle">{APP_SUBTITLE}</p>
 

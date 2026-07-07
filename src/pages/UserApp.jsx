@@ -15,6 +15,7 @@ import {
 } from '../services/notifications';
 import { teamInfo, challengeMeta, APP_NAME, APP_SUBTITLE } from '../config/gameConfig';
 import OlympusBoard from '../components/OlympusBoard';
+import friezeImg from '../assets/frieze.jpg';
 import ChallengeShell from '../components/ChallengeShell';
 import StepsChallenge from '../components/challenges/StepsChallenge';
 import TriviaChallenge from '../components/challenges/TriviaChallenge';
@@ -238,6 +239,7 @@ export default function UserApp() {
         ) : (
           <>
             <div className="waiting-hero">
+              <img alt="Procession des dieux" className="waiting-frieze" src={friezeImg} />
               <h1 className="logo-title">{APP_NAME}</h1>
               <p className="subtitle">{APP_SUBTITLE}</p>
               <p className="waiting-text">

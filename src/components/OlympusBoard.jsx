@@ -1,20 +1,17 @@
 import { teamInfo } from '../config/gameConfig';
+import olympusImg from '../assets/olympus.jpg';
 
 const RANK_LABELS = ['🥇', '🥈', '🥉'];
 
-// The Mount Olympus leaderboard: teams climb the mountain with their score.
+// The Mount Olympus leaderboard: teams climb the amphora mountain with their score.
 export default function OlympusBoard({ teams, highlightUid }) {
   const maxScore = Math.max(1, ...teams.map((t) => t.score));
 
   return (
     <div className="olympus-board">
       <div className="olympus-sky">
-        <div className="olympus-title">⚡ Mont Olympe ⚡</div>
-        <svg className="olympus-mountain" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true">
-          <polygon points="0,60 38,8 50,16 64,4 100,60" fill="var(--mountain)" />
-          <polygon points="38,8 44,14 50,16 46,11" fill="var(--mountain-snow)" />
-          <polygon points="64,4 58,12 70,14" fill="var(--mountain-snow)" />
-        </svg>
+        <img alt="Mont Olympe" className="olympus-art" src={olympusImg} />
+        <div className="olympus-title">Mont Olympe</div>
         <div className="olympus-climbers">
           {teams.map((team) => {
             const info = teamInfo(team.username);
@@ -23,7 +20,7 @@ export default function OlympusBoard({ teams, highlightUid }) {
               <div
                 className="olympus-climber"
                 key={team.uid}
-                style={{ bottom: `${8 + ratio * 78}%`, borderColor: info.color }}
+                style={{ bottom: `${8 + ratio * 56}%`, borderColor: info.color }}
                 title={`${info.title} — ${team.score} pts`}
               >
                 <span>{info.emblem}</span>

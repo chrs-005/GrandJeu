@@ -1,31 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <radialGradient id="bg" cx="50%" cy="35%" r="75%">
-      <stop offset="0%" stop-color="#1d2747"/>
-      <stop offset="100%" stop-color="#0b0f1d"/>
+    <radialGradient id="clay" cx="35%" cy="25%" r="90%">
+      <stop offset="0%" stop-color="#d98a33"/>
+      <stop offset="60%" stop-color="#c9711f"/>
+      <stop offset="100%" stop-color="#a5541a"/>
     </radialGradient>
-    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#f0c75e"/>
-      <stop offset="100%" stop-color="#b8912a"/>
-    </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
-  <!-- laurel wreath -->
-  <g fill="none" stroke="url(#gold)" stroke-width="14" stroke-linecap="round">
-    <path d="M136 150 C 90 220, 90 300, 150 370"/>
-    <path d="M376 150 C 422 220, 422 300, 362 370"/>
+  <rect width="512" height="512" rx="110" fill="url(#clay)"/>
+  <rect x="18" y="18" width="476" height="476" rx="92" fill="none" stroke="#17100a" stroke-width="16"/>
+  <!-- meander band top and bottom -->
+  <g fill="none" stroke="#17100a" stroke-width="10">
+    <path d="M96 88 V56 H160 V88 H128 V72 M192 88 V56 H256 V88 H224 V72 M288 88 V56 H352 V88 H320 V72 M384 88 V56 H416"/>
+    <path d="M96 456 V424 H160 V456 H128 V440 M192 456 V424 H256 V456 H224 V440 M288 456 V424 H352 V456 H320 V440 M384 456 V424 H416"/>
   </g>
-  <g fill="url(#gold)">
-    <ellipse cx="118" cy="180" rx="30" ry="13" transform="rotate(-55 118 180)"/>
-    <ellipse cx="102" cy="238" rx="30" ry="13" transform="rotate(-80 102 238)"/>
-    <ellipse cx="104" cy="298" rx="30" ry="13" transform="rotate(-100 104 298)"/>
-    <ellipse cx="126" cy="352" rx="30" ry="13" transform="rotate(-125 126 352)"/>
-    <ellipse cx="394" cy="180" rx="30" ry="13" transform="rotate(55 394 180)"/>
-    <ellipse cx="410" cy="238" rx="30" ry="13" transform="rotate(80 410 238)"/>
-    <ellipse cx="408" cy="298" rx="30" ry="13" transform="rotate(100 408 298)"/>
-    <ellipse cx="386" cy="352" rx="30" ry="13" transform="rotate(125 386 352)"/>
-  </g>
-  <!-- lightning bolt -->
-  <path d="M290 96 L196 268 L252 268 L222 416 L330 226 L270 226 L322 96 Z"
-        fill="url(#gold)" stroke="#f6dd9a" stroke-width="6" stroke-linejoin="round"/>
+  <!-- black-figure lightning bolt -->
+  <path d="M292 120 L192 288 L250 288 L218 400 L326 240 L266 240 L322 120 Z"
+        fill="#17100a" stroke="#ecd9a8" stroke-width="5" stroke-linejoin="round"/>
 </svg>

@@ -18,6 +18,16 @@ export function useGame(user) {
 
   const load = useCallback(async () => {
     if (!user) return;
+    // Dev preview: ?mock=<type> renders a fake game state (no backend needed).
+    if (import.meta.env.DEV) {
+      const mockType = new URLSearchParams(window.location.search).get('mock');
+      if (mockType) {
+        const { buildMockGame } = await import('../dev/mockGame');
+        setData(buildMockGame(mockType));
+        setError('');
+        return;
+      }
+    }
     try {
       const started = Date.now();
       const result = await fetchGame(user);
