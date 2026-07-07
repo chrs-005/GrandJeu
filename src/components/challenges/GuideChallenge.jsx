@@ -3,6 +3,8 @@ import { gameAction } from '../../services/api';
 import { teamInfo } from '../../config/gameConfig';
 import { haversineMeters, bearingDeg, cardinalFr, formatDistance, warmthFor } from '../../utils/geo';
 
+const NEAR_FACTOR = 1.5; // within radius×1.5 → AirTag-style "you're here" pulse
+
 function needsCompassPermission() {
   return typeof DeviceOrientationEvent !== 'undefined' &&
     typeof DeviceOrientationEvent.requestPermission === 'function';
@@ -124,23 +126,29 @@ export default function GuideChallenge({ user, challenge, refresh }) {
             className="compass-hero"
             style={
               warmth
-                ? { background: `radial-gradient(circle at 50% 35%, ${warmth.glow}, ${warmth.color})` }
+                ? { background: `radial-gradient(circle at 50% 40%, ${warmth.glow}, ${warmth.color} 75%)` }
                 : undefined
             }
           >
             {pos ? (
               <>
-                {arrowRotation != null ? (
+                {distance <= challenge.radiusM * NEAR_FACTOR ? (
+                  <div className="compass-near">
+                    <span className="compass-near-ring" />
+                    <span className="compass-near-ring compass-near-ring-2" />
+                    <span className="compass-near-dot">📍</span>
+                  </div>
+                ) : arrowRotation != null ? (
                   <svg
                     className="compass-arrow"
                     style={{ transform: `rotate(${arrowRotation}deg)` }}
                     viewBox="0 0 100 100"
                   >
                     <path
-                      d="M50 6 L72 78 L50 62 L28 78 Z"
+                      d="M50 3 L81 76 L50 58 L19 76 Z"
                       fill="#17100a"
-                      stroke="#ecd9a8"
-                      strokeWidth="4"
+                      stroke="rgba(236,217,168,0.9)"
+                      strokeWidth="3.5"
                       strokeLinejoin="round"
                     />
                   </svg>
@@ -148,7 +156,6 @@ export default function GuideChallenge({ user, challenge, refresh }) {
                   <div className="compass-cardinal">{bearing != null ? cardinalFr(bearing) : '…'}</div>
                 )}
                 <div className="compass-distance">{formatDistance(distance)}</div>
-                <div className="compass-warmth">{warmth?.label}</div>
               </>
             ) : (
               <div className="compass-waiting">

@@ -92,8 +92,24 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
   const [riddlePoints, setRiddlePoints] = useState(100);
   const [riddleMinutes, setRiddleMinutes] = useState(10);
   const [guidePin, setGuidePin] = useState(null);
+  const [guideCoords, setGuideCoords] = useState('');
   const [guideRadius, setGuideRadius] = useState(30);
   const [guideMinutes, setGuideMinutes] = useState(30);
+
+  // Pin can come from a map tap or pasted "lat, lng" coordinates — keep both in sync.
+  function pickGuidePin(latlng) {
+    setGuidePin(latlng);
+    setGuideCoords(`${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`);
+  }
+
+  function onGuideCoords(value) {
+    setGuideCoords(value);
+    const m = value.match(/(-?\d{1,2}(?:\.\d+)?)[,;\s]+(-?\d{1,3}(?:\.\d+)?)/);
+    if (!m) return;
+    const lat = Number(m[1]);
+    const lng = Number(m[2]);
+    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) setGuidePin({ lat, lng });
+  }
   const [terrCenter, setTerrCenter] = useState(null);
   const [terrCell, setTerrCell] = useState(12);
   const [terrSize, setTerrSize] = useState(40);
@@ -293,19 +309,28 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
       {type === 'guide' && (
         <div className="form-grid">
           <p className="form-hint">
-            📍 Touchez la carte pour placer la destination secrète. Les équipes verront une flèche
-            et la distance « chaud/froid » — jamais la carte.
+            📍 Touchez la carte pour placer la destination secrète, ou collez des coordonnées.
+            Les équipes verront une flèche et la distance — jamais la carte.
           </p>
           <SatMap
             center={mapCenter}
             fit="markers"
             height={300}
             markers={teamMarkers(locations)}
-            onPick={setGuidePin}
+            onPick={pickGuidePin}
             pin={guidePin}
             pinRadiusM={Number(guideRadius)}
             zoom={16}
           />
+          <label>
+            Coordonnées (lat, lng)
+            <input
+              onChange={(e) => onGuideCoords(e.target.value)}
+              placeholder="33.893800, 35.501800"
+              type="text"
+              value={guideCoords}
+            />
+          </label>
           <label>
             Rayon d’arrivée (mètres)
             <input min="10" max="500" onChange={(e) => setGuideRadius(e.target.value)} type="number" value={guideRadius} />

@@ -3,12 +3,14 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { fieldBounds } from '../utils/geo';
 
-// Esri World Imagery: free satellite tiles, no API key, no place labels.
-// The transportation reference layer adds roads only; rendered translucent.
-const SAT_URL =
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-const ROADS_URL =
-  'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}';
+// Pure satellite imagery, zero labels/street names.
+// Mapbox Satellite when a token is configured (VITE_MAPBOX_TOKEN), otherwise
+// Esri World Imagery (free, keyless). Both are label-free photo layers.
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+const SAT_URL = MAPBOX_TOKEN
+  ? `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=${MAPBOX_TOKEN}`
+  : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const SAT_ATTRIBUTION = MAPBOX_TOKEN ? '© Mapbox © Maxar' : 'Esri, Maxar';
 
 function emblemIcon(emblem, color, big = false) {
   const size = big ? 34 : 28;
@@ -20,33 +22,97 @@ function emblemIcon(emblem, color, big = false) {
   });
 }
 
+function hexToRgb(hex) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
 // Paint the territory grid + trails onto a canvas → data URL for an image overlay.
+// The grid is square cells, but we render organic paper.io-style shapes:
+// each team's cells are blurred then alpha-thresholded (rounds every corner),
+// and trails are drawn as smooth ribbons through the cell centers.
 function territoryToDataUrl(territory) {
   const { field, grid, trails, colors } = territory;
-  const scale = 8;
+  const scale = 12;
+  const width = field.cols * scale;
+  const height = field.rows * scale;
   const canvas = document.createElement('canvas');
-  canvas.width = field.cols * scale;
-  canvas.height = field.rows * scale;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext('2d');
 
-  for (let i = 0; i < grid.length; i++) {
-    const idx = grid.charCodeAt(i) - 48;
-    if (idx < 0 || idx >= colors.length) continue;
-    ctx.fillStyle = colors[idx];
-    ctx.globalAlpha = 0.55;
-    ctx.fillRect((i % field.cols) * scale, Math.floor(i / field.cols) * scale, scale, scale);
-  }
+  const off = document.createElement('canvas');
+  off.width = width;
+  off.height = height;
+  const offCtx = off.getContext('2d');
 
-  // Trails: lighter dots so pending paths read differently from owned land.
-  ctx.globalAlpha = 0.85;
-  Object.entries(trails || {}).forEach(([, info]) => {
-    const { cells, color } = info;
+  colors.forEach((color, teamIdx) => {
+    if (!color) return;
+    const teamCode = 48 + teamIdx; // '0' + idx
+    offCtx.clearRect(0, 0, width, height);
+    offCtx.filter = `blur(${scale * 0.6}px)`;
+    offCtx.fillStyle = '#fff';
+    for (let i = 0; i < grid.length; i++) {
+      if (grid.charCodeAt(i) !== teamCode) continue;
+      offCtx.fillRect(
+        (i % field.cols) * scale - 1,
+        Math.floor(i / field.cols) * scale - 1,
+        scale + 2,
+        scale + 2
+      );
+    }
+    offCtx.filter = 'none';
+
+    // Threshold the blur into a crisp rounded region in the team color.
+    const img = offCtx.getImageData(0, 0, width, height);
+    const [r, g, b] = hexToRgb(color);
+    const data = img.data;
+    for (let p = 3; p < data.length; p += 4) {
+      if (data[p] > 110) {
+        data[p - 3] = r;
+        data[p - 2] = g;
+        data[p - 1] = b;
+        data[p] = 155;
+      } else {
+        data[p] = 0;
+      }
+    }
+    offCtx.putImageData(img, 0, 0);
+    ctx.drawImage(off, 0, 0);
+  });
+
+  // Trails: smooth ribbons through cell centers (quadratic midpoint curve).
+  Object.values(trails || {}).forEach(({ cells, color }) => {
+    if (!cells?.length) return;
+    const pts = cells.map((c) => [
+      ((c % field.cols) + 0.5) * scale,
+      (Math.floor(c / field.cols) + 0.5) * scale,
+    ]);
+    ctx.globalAlpha = 0.9;
     ctx.fillStyle = color;
-    (cells || []).forEach((c) => {
-      const x = (c % field.cols) * scale;
-      const y = Math.floor(c / field.cols) * scale;
-      ctx.fillRect(x + scale / 4, y + scale / 4, scale / 2, scale / 2);
-    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = scale * 0.75;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if (pts.length === 1) {
+      ctx.beginPath();
+      ctx.arc(pts[0][0], pts[0][1], scale * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length - 1; i++) {
+        ctx.quadraticCurveTo(
+          pts[i][0],
+          pts[i][1],
+          (pts[i][0] + pts[i + 1][0]) / 2,
+          (pts[i][1] + pts[i + 1][1]) / 2
+        );
+      }
+      ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
   });
 
   return canvas.toDataURL();
@@ -92,8 +158,7 @@ export default function SatMap({
       attributionControl: true,
     });
     instance.attributionControl.setPrefix(false);
-    L.tileLayer(SAT_URL, { maxZoom: 19, attribution: 'Esri' }).addTo(instance);
-    L.tileLayer(ROADS_URL, { maxZoom: 19, opacity: 0.45 }).addTo(instance);
+    L.tileLayer(SAT_URL, { maxZoom: 19, attribution: SAT_ATTRIBUTION }).addTo(instance);
     instance.on('click', (e) => onPickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng }));
     setMap(instance);
     return () => {
@@ -119,6 +184,10 @@ export default function SatMap({
       objs.pin = L.marker([pin.lat, pin.lng], {
         icon: emblemIcon('📍', pin.color || '#e03d20', true),
       }).addTo(map);
+      // Typed coordinates can land far outside the current view.
+      if (!map.getBounds().contains([pin.lat, pin.lng])) {
+        map.panTo([pin.lat, pin.lng]);
+      }
       if (pinRadiusM) {
         objs.pinCircle = L.circle([pin.lat, pin.lng], {
           radius: pinRadiusM,
