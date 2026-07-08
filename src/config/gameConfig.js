@@ -7,6 +7,7 @@ export const TEAMS = {
     emblem: '🦅',
     title: 'Champions de Zeus',
     color: '#e2a83d',
+    neon: '#ffcf3f', // vivid variant for map overlays (dark basemap)
     motto: 'La foudre frappe les plus rapides.',
   },
   leopard: {
@@ -14,6 +15,7 @@ export const TEAMS = {
     emblem: '🐆',
     title: 'Chasseurs d’Artémis',
     color: '#94a860',
+    neon: '#a4e05a',
     motto: 'Aucune proie n’échappe à la meute.',
   },
   panda: {
@@ -21,6 +23,7 @@ export const TEAMS = {
     emblem: '🐼',
     title: 'Sages d’Athéna',
     color: '#a887c9',
+    neon: '#c98aff',
     motto: 'La ruse triomphe de la force.',
   },
   requin: {
@@ -28,6 +31,7 @@ export const TEAMS = {
     emblem: '🦈',
     title: 'Marée de Poséidon',
     color: '#6fa3c0',
+    neon: '#48d3ff',
     motto: 'Rien ne résiste à la vague.',
   },
   bison: {
@@ -35,6 +39,7 @@ export const TEAMS = {
     emblem: '🦬',
     title: 'Furie d’Arès',
     color: '#c05b41',
+    neon: '#ff6a52',
     motto: 'La charge ne s’arrête jamais.',
   },
 };
@@ -46,6 +51,7 @@ export function teamInfo(username) {
       emblem: '🏛️',
       title: username,
       color: '#e2a83d',
+      neon: '#ffcf3f',
       motto: '',
     }
   );

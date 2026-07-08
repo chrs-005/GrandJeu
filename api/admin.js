@@ -10,7 +10,7 @@ import {
   sendError,
   withErrorHandling,
 } from './_lib/core.js';
-import { buildField, countCells, EMPTY_CELL } from './_lib/territory.js';
+import { territoryAreas, SEED_RADIUS_M } from './_lib/territory.js';
 
 const DEFAULT_RANK_POINTS = [100, 70, 50, 35, 20];
 
@@ -171,19 +171,8 @@ function buildChallenge(type, cfg, teamUids) {
 
     case 'territory': {
       const durationSeconds = num(cfg.durationSeconds, 1200, 60, 14400);
-      const centerLat = Number(cfg.centerLat);
-      const centerLng = Number(cfg.centerLng);
-      if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng)) {
-        throw new Error('Placez le champ de bataille sur la carte.');
-      }
-      const cellSizeM = num(cfg.cellSizeM, 12, 4, 60);
-      const cols = num(cfg.size, 40, 10, 80);
-      const rows = cols;
-      const field = buildField(centerLat, centerLng, cellSizeM, cols, rows);
-      const teamIndex = {};
       const teamNames = {};
-      teamUids.forEach(({ uid, username }, i) => {
-        teamIndex[uid] = i;
+      teamUids.forEach(({ uid, username }) => {
         teamNames[uid] = username;
       });
       return {
@@ -191,12 +180,11 @@ function buildChallenge(type, cfg, teamUids) {
         endAtMs: startAtMs + durationSeconds * 1000,
         config: {
           durationSeconds,
-          field,
-          teamIndex,
           teamNames,
+          seedRadiusM: num(cfg.seedRadiusM, SEED_RADIUS_M, 10, 100),
           rankPoints: DEFAULT_RANK_POINTS,
         },
-        extra: { grid: EMPTY_CELL.repeat(cols * rows), trails: {}, lastCell: {} },
+        extra: { territories: {}, trails: {}, tracks: {} },
       };
     }
 
@@ -331,14 +319,9 @@ async function handlePost(req, res, verified) {
       }
       if (body.award && challenge.type === 'territory') {
         awardReason = 'Conquête d’Arès';
-        const teamIndex = challenge.config.teamIndex || {};
-        const counts = countCells(challenge.grid || '', Object.keys(teamIndex).length);
-        ranking = Object.entries(teamIndex)
-          .map(([uid, idx]) => ({
-            uid,
-            username: challenge.config.teamNames?.[uid] || uid,
-            metric: counts[idx] || 0,
-          }))
+        const areas = territoryAreas(challenge);
+        ranking = Object.entries(challenge.config.teamNames || {})
+          .map(([uid, username]) => ({ uid, username, metric: areas[uid] || 0 }))
           .filter((entry) => entry.metric > 0)
           .sort((a, b) => b.metric - a.metric);
       }

@@ -1,10 +1,22 @@
-// Geometry helpers + the territory-conquest engine (paper.io on foot).
-// The field is a flat grid of square cells anchored on a GPS center point.
-// Grid state is one string: '.' = free, '0'..'4' = owned by team index.
-// Each team also has a pending trail (walked cells outside its territory);
-// re-entering its own territory captures the trail plus every enclosed cell.
+// Vector territory engine — paper.io on foot, unbounded (the whole map is
+// the arena). Teams own MultiPolygons; walking outside your territory leaves
+// a GPS trail, and re-entering your territory closes the loop: the enclosed
+// polygon is unioned into your land and subtracted from everyone else's.
+//
+// Geometry format: GeoJSON-style MultiPolygon = [polygon...],
+// polygon = [ring...] (first = outer, rest = holes), ring = [[lng,lat]...].
+// Firestore cannot store nested arrays, so geometries live in the challenge
+// doc as JSON strings: territories.{uid}, trails.{uid}, tracks.{uid}.
 
-export const EMPTY_CELL = '.';
+import polygonClipping from 'polygon-clipping';
+
+export const SEED_RADIUS_M = 25;
+const MIN_CAPTURE_M2 = 150;
+const MIN_TRAIL_POINT_M = 3;
+const MAX_TRAIL_POINTS = 500;
+const MAX_TRACK_POINTS = 700;
+const GPS_JUMP_M = 200;
+const SIMPLIFY_M = 2;
 
 export function haversineMeters(lat1, lng1, lat2, lng2) {
   const rad = Math.PI / 180;
@@ -16,142 +28,216 @@ export function haversineMeters(lat1, lng1, lat2, lng2) {
   return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export function buildField(centerLat, centerLng, cellSizeM, cols, rows) {
-  const latPerCell = cellSizeM / 111320;
-  const lngPerCell = cellSizeM / (111320 * Math.cos((centerLat * Math.PI) / 180));
-  return {
-    centerLat,
-    centerLng,
-    cellSizeM,
-    cols,
-    rows,
-    latPerCell,
-    lngPerCell,
-    originLat: centerLat + (rows / 2) * latPerCell, // north-west corner
-    originLng: centerLng - (cols / 2) * lngPerCell,
-  };
+function metersPerDeg(lat) {
+  return { mLat: 111320, mLng: 111320 * Math.cos((lat * Math.PI) / 180) };
 }
 
-export function latLngToCell(field, lat, lng) {
-  const row = Math.floor((field.originLat - lat) / field.latPerCell);
-  const col = Math.floor((lng - field.originLng) / field.lngPerCell);
-  if (row < 0 || row >= field.rows || col < 0 || col >= field.cols) return -1;
-  return row * field.cols + col;
-}
+const round6 = (n) => Math.round(n * 1e6) / 1e6;
 
-// Bresenham line between two cell indexes, so fast walkers/GPS gaps still
-// leave a continuous trail.
-function lineCells(field, from, to) {
-  let x0 = from % field.cols;
-  let y0 = Math.floor(from / field.cols);
-  const x1 = to % field.cols;
-  const y1 = Math.floor(to / field.cols);
-  const dx = Math.abs(x1 - x0);
-  const dy = -Math.abs(y1 - y0);
-  const sx = x0 < x1 ? 1 : -1;
-  const sy = y0 < y1 ? 1 : -1;
-  let err = dx + dy;
-  const cells = [];
-  for (;;) {
-    cells.push(y0 * field.cols + x0);
-    if (x0 === x1 && y0 === y1) break;
-    const e2 = 2 * err;
-    if (e2 >= dy) {
-      err += dy;
-      x0 += sx;
-    }
-    if (e2 <= dx) {
-      err += dx;
-      y0 += sy;
-    }
-  }
-  return cells;
-}
-
-// Turn the trail into territory, then flood-fill from the field border:
-// every cell the flood cannot reach is enclosed by the team → captured too.
-function capture(gridArr, field, teamChar, trail) {
-  for (const c of trail) gridArr[c] = teamChar;
-  const { cols, rows } = field;
-  const total = cols * rows;
-  const reachable = new Uint8Array(total);
-  const stack = [];
-  for (let x = 0; x < cols; x++) stack.push(x, (rows - 1) * cols + x);
-  for (let y = 0; y < rows; y++) stack.push(y * cols, y * cols + cols - 1);
-  while (stack.length) {
-    const c = stack.pop();
-    if (c < 0 || c >= total || reachable[c] || gridArr[c] === teamChar) continue;
-    reachable[c] = 1;
-    const x = c % cols;
-    if (x > 0) stack.push(c - 1);
-    if (x < cols - 1) stack.push(c + 1);
-    stack.push(c - cols, c + cols);
-  }
-  for (let c = 0; c < total; c++) {
-    if (!reachable[c] && gridArr[c] !== teamChar) gridArr[c] = teamChar;
+export function parseGeom(json, fallback) {
+  if (!json) return fallback;
+  try {
+    return JSON.parse(json);
+  } catch {
+    return fallback;
   }
 }
 
-const MAX_LINE_CELLS = 8; // beyond this the GPS jumped — restart from the new cell
-const MAX_TRAIL_CELLS = 800;
+// A near-circle polygon used to seed a team's home base.
+export function circleMultiPolygon(lat, lng, radiusM, steps = 16) {
+  const { mLat, mLng } = metersPerDeg(lat);
+  const ring = [];
+  for (let i = 0; i < steps; i++) {
+    const a = (i / steps) * 2 * Math.PI;
+    ring.push([
+      round6(lng + (Math.cos(a) * radiusM) / mLng),
+      round6(lat + (Math.sin(a) * radiusM) / mLat),
+    ]);
+  }
+  ring.push(ring[0]);
+  return [[ring]];
+}
 
-// Apply one GPS move for a team. Returns the new grid/trail or null if the
-// team is not part of the game. `challenge` needs: config.field,
-// config.teamIndex, grid, trails, lastCell.
-export function applyMove(challenge, uid, cellIdx) {
-  const field = challenge.config.field;
-  const teamIdx = challenge.config.teamIndex?.[uid];
-  if (teamIdx == null) return null;
-  const teamChar = String(teamIdx);
-
-  const gridArr = (challenge.grid || EMPTY_CELL.repeat(field.cols * field.rows)).split('');
-  let trail = (challenge.trails || {})[uid] || [];
-  const trailSet = new Set(trail);
-  const last = (challenge.lastCell || {})[uid];
-  let captured = false;
-
-  // First contact: seed a 3×3 home base so the team has land to return to.
-  if (!gridArr.includes(teamChar) && !trail.length) {
-    const x = cellIdx % field.cols;
-    const y = Math.floor(cellIdx / field.cols);
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (nx >= 0 && nx < field.cols && ny >= 0 && ny < field.rows) {
-          gridArr[ny * field.cols + nx] = teamChar;
+export function pointInMultiPolygon(mp, lng, lat) {
+  let inside = false;
+  for (const polygon of mp || []) {
+    for (let r = 0; r < polygon.length; r++) {
+      const ring = polygon[r];
+      let hit = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [xi, yi] = ring[i];
+        const [xj, yj] = ring[j];
+        if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+          hit = !hit;
         }
       }
+      if (r === 0 && hit) inside = !inside ? true : inside;
+      if (r === 0 && !hit) break; // not in outer ring → holes irrelevant
+      if (r > 0 && hit) return false; // inside a hole of this polygon
     }
-    return { grid: gridArr.join(''), trail: [], lastCell: cellIdx, captured: true };
+    if (inside) return true;
   }
-
-  let path = last != null && last !== cellIdx ? lineCells(field, last, cellIdx) : [cellIdx];
-  if (path.length > MAX_LINE_CELLS) path = [cellIdx];
-
-  for (const c of path) {
-    if (gridArr[c] === teamChar) {
-      if (trail.length) {
-        capture(gridArr, field, teamChar, trail);
-        trail = [];
-        trailSet.clear();
-        captured = true;
-      }
-    } else if (!trailSet.has(c) && trail.length < MAX_TRAIL_CELLS) {
-      trail.push(c);
-      trailSet.add(c);
-    }
-  }
-
-  return { grid: gridArr.join(''), trail, lastCell: cellIdx, captured };
+  return inside;
 }
 
-// Owned-cell counts per team index: [12, 0, 34, ...]
-export function countCells(grid, teamCount) {
-  const counts = new Array(teamCount).fill(0);
-  for (let i = 0; i < grid.length; i++) {
-    const idx = grid.charCodeAt(i) - 48; // '0' → 0
-    if (idx >= 0 && idx < teamCount) counts[idx]++;
+// Shoelace area in m² (equirectangular approximation — fine at camp scale).
+export function multiPolygonAreaM2(mp) {
+  let total = 0;
+  for (const polygon of mp || []) {
+    polygon.forEach((ring, r) => {
+      if (ring.length < 3) return;
+      const { mLat, mLng } = metersPerDeg(ring[0][1]);
+      let sum = 0;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        sum += (ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1]) * mLng * mLat;
+      }
+      const area = Math.abs(sum / 2);
+      total += r === 0 ? area : -area;
+    });
   }
-  return counts;
+  return Math.max(0, total);
+}
+
+// Drop ring points closer than `tolM` meters to the previously kept one.
+function simplifyMultiPolygon(mp, tolM = SIMPLIFY_M) {
+  return (mp || [])
+    .map((polygon) =>
+      polygon
+        .map((ring) => {
+          if (ring.length <= 8) return ring;
+          const kept = [ring[0]];
+          for (let i = 1; i < ring.length - 1; i++) {
+            const prev = kept[kept.length - 1];
+            if (haversineMeters(prev[1], prev[0], ring[i][1], ring[i][0]) >= tolM) {
+              kept.push(ring[i]);
+            }
+          }
+          kept.push(ring[ring.length - 1]);
+          return kept.length >= 4 ? kept : ring;
+        })
+        .filter((ring) => ring.length >= 4)
+    )
+    .filter((polygon) => polygon.length > 0);
+}
+
+function safeUnion(a, b) {
+  try {
+    return simplifyMultiPolygon(polygonClipping.union(a, b));
+  } catch {
+    return a;
+  }
+}
+
+function safeDifference(a, b) {
+  try {
+    return simplifyMultiPolygon(polygonClipping.difference(a, b));
+  } catch {
+    return a;
+  }
+}
+
+// Normalize a (possibly self-intersecting) closed trail loop into a valid
+// MultiPolygon; returns null when degenerate.
+function loopToPolygon(trail, closingPoint) {
+  const ring = [...trail, closingPoint, trail[0]].map(([x, y]) => [round6(x), round6(y)]);
+  const deduped = ring.filter(
+    (p, i) => i === 0 || p[0] !== ring[i - 1][0] || p[1] !== ring[i - 1][1]
+  );
+  if (deduped.length < 4) return null;
+  try {
+    const normalized = polygonClipping.union([deduped]);
+    return normalized.length ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Apply one GPS move. `challenge` carries the raw Firestore fields
+ * (territories/trails/tracks maps of JSON strings + config.teamNames).
+ * Returns { updates, captured, areaM2 } where `updates` are Firestore
+ * field-path updates (JSON strings), or null if the uid is not a team.
+ */
+export function applyTerritoryMove(challenge, uid, lat, lng) {
+  if (!challenge.config?.teamNames?.[uid]) return null;
+  const point = [round6(lng), round6(lat)];
+  const updates = {};
+
+  let territory = parseGeom(challenge.territories?.[uid], []);
+  let trail = parseGeom(challenge.trails?.[uid], []);
+  const track = parseGeom(challenge.tracks?.[uid], []);
+
+  // Run-tracker history: keep the walked path for the end-of-game replay.
+  const lastTrack = track[track.length - 1];
+  const jumped =
+    lastTrack && haversineMeters(lastTrack[1], lastTrack[0], lat, lng) > GPS_JUMP_M;
+  if (!lastTrack || haversineMeters(lastTrack[1], lastTrack[0], lat, lng) >= MIN_TRAIL_POINT_M) {
+    track.push(point);
+    if (track.length > MAX_TRACK_POINTS) track.splice(0, track.length - MAX_TRACK_POINTS);
+    updates[`tracks.${uid}`] = JSON.stringify(track);
+  }
+
+  // Bad GPS fix: don't connect a capture line across a teleport.
+  if (jumped) {
+    updates[`trails.${uid}`] = JSON.stringify([]);
+    return { updates, captured: false, areaM2: multiPolygonAreaM2(territory) };
+  }
+
+  // No land yet (or fully eaten): seed a home disc right here, stealing it
+  // from whoever holds the ground.
+  if (!territory.length) {
+    territory = circleMultiPolygon(lat, lng, challenge.config.seedRadiusM || SEED_RADIUS_M);
+    updates[`territories.${uid}`] = JSON.stringify(territory);
+    updates[`trails.${uid}`] = JSON.stringify([]);
+    for (const otherUid of Object.keys(challenge.config.teamNames)) {
+      if (otherUid === uid) continue;
+      const other = parseGeom(challenge.territories?.[otherUid], []);
+      if (other.length) {
+        updates[`territories.${otherUid}`] = JSON.stringify(safeDifference(other, territory));
+      }
+    }
+    return { updates, captured: true, areaM2: multiPolygonAreaM2(territory) };
+  }
+
+  const inside = pointInMultiPolygon(territory, point[0], point[1]);
+
+  if (!inside) {
+    const lastTrail = trail[trail.length - 1];
+    if (!lastTrail || haversineMeters(lastTrail[1], lastTrail[0], lat, lng) >= MIN_TRAIL_POINT_M) {
+      trail.push(point);
+      if (trail.length > MAX_TRAIL_POINTS) trail.splice(0, trail.length - MAX_TRAIL_POINTS);
+      updates[`trails.${uid}`] = JSON.stringify(trail);
+    }
+    return { updates, captured: false, areaM2: multiPolygonAreaM2(territory) };
+  }
+
+  // Back home: close the loop and capture.
+  let captured = false;
+  if (trail.length >= 3) {
+    const loop = loopToPolygon(trail, point);
+    if (loop && multiPolygonAreaM2(loop) >= MIN_CAPTURE_M2) {
+      territory = safeUnion(territory, loop);
+      updates[`territories.${uid}`] = JSON.stringify(territory);
+      for (const otherUid of Object.keys(challenge.config.teamNames)) {
+        if (otherUid === uid) continue;
+        const other = parseGeom(challenge.territories?.[otherUid], []);
+        if (other.length) {
+          updates[`territories.${otherUid}`] = JSON.stringify(safeDifference(other, loop));
+        }
+      }
+      captured = true;
+    }
+  }
+  if (trail.length) updates[`trails.${uid}`] = JSON.stringify([]);
+
+  return { updates, captured, areaM2: multiPolygonAreaM2(territory) };
+}
+
+// Per-team areas for views and final ranking.
+export function territoryAreas(challenge) {
+  const areas = {};
+  for (const uid of Object.keys(challenge.config?.teamNames || {})) {
+    areas[uid] = Math.round(multiPolygonAreaM2(parseGeom(challenge.territories?.[uid], [])));
+  }
+  return areas;
 }

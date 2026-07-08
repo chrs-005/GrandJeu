@@ -6,7 +6,7 @@ import { useNow, formatRemaining } from '../hooks/useNow';
 import { teamInfo, challengeMeta, CHALLENGE_META, RANK_POINTS } from '../config/gameConfig';
 import { TRIVIA_PACKS } from '../data/triviaPacks';
 import { DRAWING_PROMPTS, PHOTO_MISSIONS, RIDDLE_PRESETS } from '../data/presets';
-import { previewField, fieldBounds } from '../utils/geo';
+import { mpToLatLngPolygons, lngLatToLatLng, multiPolygonAreaM2, formatArea } from '../utils/geo';
 import SatMap from '../components/SatMap';
 
 const QUICK_POINTS = [100, 70, 50, 30];
@@ -45,31 +45,41 @@ function locationsCenter(locations) {
   };
 }
 
-// Build the SatMap territory prop from a raw admin challenge doc.
-function adminTerritory(challenge) {
-  const { field, teamIndex, teamNames } = challenge.config;
-  const colors = [];
-  Object.entries(teamIndex || {}).forEach(([uid, idx]) => {
-    colors[idx] = teamInfo(teamNames?.[uid]).color;
-  });
-  const trails = {};
-  Object.entries(challenge.trails || {}).forEach(([uid, cells]) => {
-    trails[uid] = { cells, color: colors[teamIndex?.[uid]] || '#fff' };
-  });
-  return { field, grid: challenge.grid || '', trails, colors };
+function safeParse(json, fallback) {
+  if (!json) return fallback;
+  try {
+    return JSON.parse(json);
+  } catch {
+    return fallback;
+  }
 }
 
-function territoryCounts(challenge) {
-  const { teamIndex, teamNames } = challenge.config;
-  const grid = challenge.grid || '';
-  const counts = {};
-  for (let i = 0; i < grid.length; i++) {
-    const c = grid[i];
-    if (c !== '.') counts[c] = (counts[c] || 0) + 1;
-  }
-  return Object.entries(teamIndex || {})
-    .map(([uid, idx]) => ({ uid, username: teamNames?.[uid] || uid, cells: counts[String(idx)] || 0 }))
-    .sort((a, b) => b.cells - a.cells);
+// Vector overlays + area ranking from a raw admin territory challenge doc
+// (geometries are stored as JSON strings in Firestore).
+function adminTerritoryVectors(challenge) {
+  const polygons = [];
+  const lines = [];
+  Object.entries(challenge.config.teamNames || {}).forEach(([uid, username]) => {
+    const info = teamInfo(username);
+    mpToLatLngPolygons(safeParse(challenge.territories?.[uid], [])).forEach((rings, i) => {
+      polygons.push({ id: `${uid}-${i}`, rings, color: info.neon });
+    });
+    const trail = safeParse(challenge.trails?.[uid], []);
+    if (trail.length > 1) {
+      lines.push({ id: `trail-${uid}`, points: lngLatToLatLng(trail), color: info.neon, weight: 4, casing: true });
+    }
+  });
+  return { polygons, lines };
+}
+
+function adminTerritoryAreas(challenge) {
+  return Object.entries(challenge.config.teamNames || {})
+    .map(([uid, username]) => ({
+      uid,
+      username,
+      areaM2: multiPolygonAreaM2(safeParse(challenge.territories?.[uid], [])),
+    }))
+    .sort((a, b) => b.areaM2 - a.areaM2);
 }
 
 // ---------------------------------------------------------------------------
@@ -110,9 +120,6 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
     const lng = Number(m[2]);
     if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) setGuidePin({ lat, lng });
   }
-  const [terrCenter, setTerrCenter] = useState(null);
-  const [terrCell, setTerrCell] = useState(12);
-  const [terrSize, setTerrSize] = useState(40);
   const [terrMinutes, setTerrMinutes] = useState(20);
 
   const mapCenter = useMemo(() => locationsCenter(locations), [locations]);
@@ -166,10 +173,6 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
         });
       case 'territory':
         return onLaunch(type, {
-          centerLat: terrCenter?.lat,
-          centerLng: terrCenter?.lng,
-          cellSizeM: Number(terrCell),
-          size: Number(terrSize),
           durationSeconds: Number(terrMinutes) * 60,
         });
       default:
@@ -177,7 +180,7 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
     }
   }
 
-  const missingPin = (type === 'guide' && !guidePin) || (type === 'territory' && !terrCenter);
+  const missingPin = type === 'guide' && !guidePin;
 
   return (
     <div className="launch-form">
@@ -346,39 +349,10 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
       {type === 'territory' && (
         <div className="form-grid">
           <p className="form-hint">
-            ⚔️ Touchez la carte pour centrer le champ de bataille. Chaque équipe peint le terrain
-            en marchant et capture les zones qu’elle encercle.
+            ⚔️ Pas de terrain à définir : toute la ville est le champ de bataille. Chaque équipe
+            démarre son empire là où elle se trouve, trace son sillage en marchant et capture les
+            zones qu’elle encercle — y compris celles des autres.
           </p>
-          <SatMap
-            center={mapCenter}
-            fit="markers"
-            height={300}
-            markers={teamMarkers(locations)}
-            onPick={setTerrCenter}
-            rectBounds={
-              terrCenter
-                ? fieldBounds(previewField(terrCenter.lat, terrCenter.lng, Number(terrCell), Number(terrSize), Number(terrSize)))
-                : null
-            }
-            zoom={16}
-          />
-          <label>
-            Taille d’une case (mètres)
-            <select onChange={(e) => setTerrCell(e.target.value)} value={terrCell}>
-              <option value={8}>8 m — précis, petit terrain</option>
-              <option value={12}>12 m — équilibré</option>
-              <option value={16}>16 m — grand terrain</option>
-              <option value={20}>20 m — très grand</option>
-            </select>
-          </label>
-          <label>
-            Grille (cases par côté)
-            <select onChange={(e) => setTerrSize(e.target.value)} value={terrSize}>
-              <option value={30}>30 × 30 (≈ {30 * Number(terrCell)} m de côté)</option>
-              <option value={40}>40 × 40 (≈ {40 * Number(terrCell)} m de côté)</option>
-              <option value={60}>60 × 60 (≈ {60 * Number(terrCell)} m de côté)</option>
-            </select>
-          </label>
           <label>
             Durée (minutes)
             <input min="1" max="240" onChange={(e) => setTerrMinutes(e.target.value)} type="number" value={terrMinutes} />
@@ -592,18 +566,18 @@ function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
       {challenge.type === 'territory' && (
         <>
           <SatMap
-            center={{ lat: challenge.config.field.centerLat, lng: challenge.config.field.centerLng }}
-            fit="territory"
-            height={360}
+            basemap="dark"
+            fit="vectors"
+            height={380}
             markers={teamMarkers(locations)}
-            territory={adminTerritory(challenge)}
+            vectors={adminTerritoryVectors(challenge)}
             zoom={16}
           />
           <ol className="mini-board">
-            {territoryCounts(challenge).map((entry, index) => (
+            {adminTerritoryAreas(challenge).map((entry, index) => (
               <li key={entry.uid}>
                 <span>{index + 1}. {teamInfo(entry.username).emblem} {entry.username}</span>
-                <strong>{entry.cells} cases</strong>
+                <strong>{formatArea(entry.areaM2)}</strong>
               </li>
             ))}
           </ol>

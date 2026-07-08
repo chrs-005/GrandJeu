@@ -46,27 +46,37 @@ export function warmthFor(meters) {
   return WARMTH.find((w) => meters <= w.max);
 }
 
-// Lat/lng bounds of a territory field, for map overlays.
-export function fieldBounds(field) {
-  return [
-    [field.originLat, field.originLng],
-    [field.originLat - field.rows * field.latPerCell, field.originLng + field.cols * field.lngPerCell],
-  ];
+// GeoJSON-style MultiPolygon ([lng,lat]) → Leaflet polygons ([lat,lng] rings).
+export function mpToLatLngPolygons(mp) {
+  return (mp || []).map((polygon) => polygon.map((ring) => ring.map(([lng, lat]) => [lat, lng])));
 }
 
-// Client-side preview of a field before launch (same math as the server).
-export function previewField(centerLat, centerLng, cellSizeM, cols, rows) {
-  const latPerCell = cellSizeM / 111320;
-  const lngPerCell = cellSizeM / (111320 * Math.cos((centerLat * Math.PI) / 180));
-  return {
-    centerLat,
-    centerLng,
-    cellSizeM,
-    cols,
-    rows,
-    latPerCell,
-    lngPerCell,
-    originLat: centerLat + (rows / 2) * latPerCell,
-    originLng: centerLng - (cols / 2) * lngPerCell,
-  };
+export function lngLatToLatLng(points) {
+  return (points || []).map(([lng, lat]) => [lat, lng]);
+}
+
+// Shoelace area in m² (mirror of the server helper, for admin display).
+export function multiPolygonAreaM2(mp) {
+  let total = 0;
+  for (const polygon of mp || []) {
+    polygon.forEach((ring, r) => {
+      if (ring.length < 3) return;
+      const mLat = 111320;
+      const mLng = 111320 * Math.cos((ring[0][1] * Math.PI) / 180);
+      let sum = 0;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        sum += (ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1]) * mLng * mLat;
+      }
+      const area = Math.abs(sum / 2);
+      total += r === 0 ? area : -area;
+    });
+  }
+  return Math.max(0, total);
+}
+
+export function formatArea(m2) {
+  if (m2 >= 20000) {
+    return `${(m2 / 10000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ha`;
+  }
+  return `${Math.round(m2).toLocaleString('fr-FR')} m²`;
 }

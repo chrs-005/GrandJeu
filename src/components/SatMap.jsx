@@ -1,135 +1,54 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { fieldBounds } from '../utils/geo';
 
-// Pure satellite imagery, zero labels/street names.
-// Mapbox Satellite when a token is configured (VITE_MAPBOX_TOKEN), otherwise
-// Esri World Imagery (free, keyless). Both are label-free photo layers.
+// Two label-free basemaps:
+// - 'sat': satellite photo (Mapbox Satellite when VITE_MAPBOX_TOKEN is set,
+//   otherwise Esri World Imagery — both keyless of street names).
+// - 'dark': CARTO dark, no labels — run-tracker style, team colors pop.
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
-const SAT_URL = MAPBOX_TOKEN
-  ? `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=${MAPBOX_TOKEN}`
-  : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-const SAT_ATTRIBUTION = MAPBOX_TOKEN ? '© Mapbox © Maxar' : 'Esri, Maxar';
+const BASEMAPS = {
+  sat: {
+    url: MAPBOX_TOKEN
+      ? `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=${MAPBOX_TOKEN}`
+      : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: MAPBOX_TOKEN ? '© Mapbox © Maxar' : 'Esri, Maxar',
+    maxZoom: 19,
+  },
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+    attribution: '© OpenStreetMap © CARTO',
+    maxZoom: 20,
+  },
+};
 
-function emblemIcon(emblem, color, big = false) {
+function emblemIcon(emblem, color, { big = false, pulse = false } = {}) {
   const size = big ? 34 : 28;
   return L.divIcon({
     className: 'sat-marker-wrap',
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
-    html: `<div class="sat-marker${big ? ' sat-marker-big' : ''}" style="border-color:${color}">${emblem}</div>`,
+    html: `<div class="sat-marker${big ? ' sat-marker-big' : ''}" style="border-color:${color}">${
+      pulse ? `<span class="sat-marker-pulse" style="border-color:${color}"></span>` : ''
+    }${emblem}</div>`,
   });
-}
-
-function hexToRgb(hex) {
-  const n = parseInt(hex.replace('#', ''), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-// Paint the territory grid + trails onto a canvas → data URL for an image overlay.
-// The grid is square cells, but we render organic paper.io-style shapes:
-// each team's cells are blurred then alpha-thresholded (rounds every corner),
-// and trails are drawn as smooth ribbons through the cell centers.
-function territoryToDataUrl(territory) {
-  const { field, grid, trails, colors } = territory;
-  const scale = 12;
-  const width = field.cols * scale;
-  const height = field.rows * scale;
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-
-  const off = document.createElement('canvas');
-  off.width = width;
-  off.height = height;
-  const offCtx = off.getContext('2d');
-
-  colors.forEach((color, teamIdx) => {
-    if (!color) return;
-    const teamCode = 48 + teamIdx; // '0' + idx
-    offCtx.clearRect(0, 0, width, height);
-    offCtx.filter = `blur(${scale * 0.6}px)`;
-    offCtx.fillStyle = '#fff';
-    for (let i = 0; i < grid.length; i++) {
-      if (grid.charCodeAt(i) !== teamCode) continue;
-      offCtx.fillRect(
-        (i % field.cols) * scale - 1,
-        Math.floor(i / field.cols) * scale - 1,
-        scale + 2,
-        scale + 2
-      );
-    }
-    offCtx.filter = 'none';
-
-    // Threshold the blur into a crisp rounded region in the team color.
-    const img = offCtx.getImageData(0, 0, width, height);
-    const [r, g, b] = hexToRgb(color);
-    const data = img.data;
-    for (let p = 3; p < data.length; p += 4) {
-      if (data[p] > 110) {
-        data[p - 3] = r;
-        data[p - 2] = g;
-        data[p - 1] = b;
-        data[p] = 155;
-      } else {
-        data[p] = 0;
-      }
-    }
-    offCtx.putImageData(img, 0, 0);
-    ctx.drawImage(off, 0, 0);
-  });
-
-  // Trails: smooth ribbons through cell centers (quadratic midpoint curve).
-  Object.values(trails || {}).forEach(({ cells, color }) => {
-    if (!cells?.length) return;
-    const pts = cells.map((c) => [
-      ((c % field.cols) + 0.5) * scale,
-      (Math.floor(c / field.cols) + 0.5) * scale,
-    ]);
-    ctx.globalAlpha = 0.9;
-    ctx.fillStyle = color;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = scale * 0.75;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    if (pts.length === 1) {
-      ctx.beginPath();
-      ctx.arc(pts[0][0], pts[0][1], scale * 0.4, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      ctx.beginPath();
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      for (let i = 1; i < pts.length - 1; i++) {
-        ctx.quadraticCurveTo(
-          pts[i][0],
-          pts[i][1],
-          (pts[i][0] + pts[i + 1][0]) / 2,
-          (pts[i][1] + pts[i + 1][1]) / 2
-        );
-      }
-      ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-  });
-
-  return canvas.toDataURL();
 }
 
 /**
- * Satellite map wrapper.
+ * Label-free map wrapper.
+ * - basemap: 'sat' (default) | 'dark'
  * - center {lat,lng} + zoom: initial view
  * - onPick(latlng): map click callback (admin pin drop)
- * - pin {lat,lng,color?}: single target pin
- * - pinRadiusM: circle around the pin
- * - markers: [{id, lat, lng, emblem, color, big?, label?}]
- * - territory: {field, grid, trails: {uid:{cells,color}}, colors: [by index]}
- * - rectBounds: [[n,w],[s,e]] preview rectangle
- * - fit: 'territory' | 'markers' | null — what to auto-frame once data arrives
+ * - pin {lat,lng,color?} + pinRadiusM: single target pin with radius circle
+ * - markers: [{id, lat, lng, emblem, color, big?, pulse?, label?}]
+ * - vectors: {polygons: [{id, rings, color, fillOpacity?}],
+ *             lines: [{id, points, color, weight?, casing?, dashed?, opacity?}]}
+ *   (rings/points already in Leaflet [lat,lng] order)
+ * - follow {lat,lng}: keep this point in view (pans when it leaves the frame)
+ * - fit: 'markers' | 'vectors' — what to auto-frame once data first arrives
  */
 export default function SatMap({
+  basemap = 'sat',
   center,
   zoom = 17,
   height = 320,
@@ -137,20 +56,20 @@ export default function SatMap({
   pin,
   pinRadiusM,
   markers = [],
-  territory,
-  rectBounds,
+  vectors,
+  follow,
   fit = null,
 }) {
   const divRef = useRef(null);
   const [map, setMap] = useState(null);
-  const objectsRef = useRef({ markers: new Map(), pin: null, pinCircle: null, overlay: null, rect: null });
+  const objectsRef = useRef({ markers: new Map(), pin: null, pinCircle: null, vectors: null });
   const fittedRef = useRef(false);
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
 
   useEffect(() => {
     // Fresh layer cache for this map instance (StrictMode remounts the map).
-    objectsRef.current = { markers: new Map(), pin: null, pinCircle: null, overlay: null, rect: null };
+    objectsRef.current = { markers: new Map(), pin: null, pinCircle: null, vectors: null };
     fittedRef.current = false;
     const instance = L.map(divRef.current, {
       center: [center?.lat ?? 33.8938, center?.lng ?? 35.5018],
@@ -158,7 +77,8 @@ export default function SatMap({
       attributionControl: true,
     });
     instance.attributionControl.setPrefix(false);
-    L.tileLayer(SAT_URL, { maxZoom: 19, attribution: SAT_ATTRIBUTION }).addTo(instance);
+    const base = BASEMAPS[basemap] || BASEMAPS.sat;
+    L.tileLayer(base.url, { maxZoom: base.maxZoom, attribution: base.attribution }).addTo(instance);
     instance.on('click', (e) => onPickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng }));
     setMap(instance);
     return () => {
@@ -166,7 +86,7 @@ export default function SatMap({
       setMap(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [basemap]);
 
   // Target pin + arrival radius
   useEffect(() => {
@@ -182,7 +102,7 @@ export default function SatMap({
     }
     if (pin) {
       objs.pin = L.marker([pin.lat, pin.lng], {
-        icon: emblemIcon('📍', pin.color || '#e03d20', true),
+        icon: emblemIcon('📍', pin.color || '#e03d20', { big: true }),
       }).addTo(map);
       // Typed coordinates can land far outside the current view.
       if (!map.getBounds().contains([pin.lat, pin.lng])) {
@@ -212,7 +132,7 @@ export default function SatMap({
         existing.setLatLng([m.lat, m.lng]);
       } else {
         const marker = L.marker([m.lat, m.lng], {
-          icon: emblemIcon(m.emblem, m.color, m.big),
+          icon: emblemIcon(m.emblem, m.color, { big: m.big, pulse: m.pulse }),
           title: m.label || '',
         }).addTo(map);
         objs.markers.set(m.id, marker);
@@ -231,52 +151,63 @@ export default function SatMap({
     }
   }, [map, markers, fit]);
 
-  // Territory grid overlay
+  // Vector layers: territory polygons + trail/track ribbons.
   useEffect(() => {
     const objs = objectsRef.current;
     if (!map) return;
-    if (!territory) {
-      if (objs.overlay) {
-        objs.overlay.remove();
-        objs.overlay = null;
-      }
-      return;
+    if (objs.vectors) {
+      objs.vectors.remove();
+      objs.vectors = null;
     }
-    const url = territoryToDataUrl(territory);
-    const bounds = fieldBounds(territory.field);
-    if (objs.overlay) {
-      objs.overlay.setUrl(url);
-    } else {
-      objs.overlay = L.imageOverlay(url, bounds, {
-        opacity: 1,
-        interactive: false,
-        className: 'territory-overlay',
-      }).addTo(map);
-      if (fit === 'territory' && !fittedRef.current) {
-        fittedRef.current = true;
-        map.fitBounds(bounds, { padding: [12, 12] });
+    if (!vectors) return;
+    const group = L.featureGroup();
+    (vectors.polygons || []).forEach((p) => {
+      L.polygon(p.rings, {
+        color: p.color,
+        weight: 3,
+        opacity: 0.95,
+        fillColor: p.color,
+        fillOpacity: p.fillOpacity ?? 0.35,
+        lineJoin: 'round',
+      }).addTo(group);
+    });
+    (vectors.lines || []).forEach((l) => {
+      if (!l.points || l.points.length < 2) return;
+      if (l.casing) {
+        L.polyline(l.points, {
+          color: 'rgba(0,0,0,0.55)',
+          weight: (l.weight || 5) + 4,
+          lineCap: 'round',
+          lineJoin: 'round',
+          smoothFactor: 1.5,
+        }).addTo(group);
       }
+      L.polyline(l.points, {
+        color: l.color,
+        weight: l.weight || 5,
+        opacity: l.opacity ?? 1,
+        lineCap: 'round',
+        lineJoin: 'round',
+        smoothFactor: 1.5,
+        dashArray: l.dashed ? '1 12' : null,
+      }).addTo(group);
+    });
+    group.addTo(map);
+    objs.vectors = group;
+    if (fit === 'vectors' && !fittedRef.current && group.getLayers().length) {
+      fittedRef.current = true;
+      map.fitBounds(group.getBounds().pad(0.25), { maxZoom: 18 });
     }
-  }, [map, territory, fit]);
+  }, [map, vectors, fit]);
 
-  // Launch-preview rectangle
+  // Run-tracker follow: keep own position in frame without fighting user pans.
   useEffect(() => {
-    const objs = objectsRef.current;
-    if (!map) return;
-    if (objs.rect) {
-      objs.rect.remove();
-      objs.rect = null;
+    if (!map || !follow) return;
+    if (!map.getBounds().pad(-0.15).contains([follow.lat, follow.lng])) {
+      map.panTo([follow.lat, follow.lng]);
     }
-    if (rectBounds) {
-      objs.rect = L.rectangle(rectBounds, {
-        color: '#ecd9a8',
-        weight: 2,
-        dashArray: '6 6',
-        fillColor: '#c9711f',
-        fillOpacity: 0.12,
-      }).addTo(map);
-    }
-  }, [map, rectBounds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, follow?.lat, follow?.lng]);
 
   return <div className="sat-map" ref={divRef} style={{ height }} />;
 }

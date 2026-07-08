@@ -1,7 +1,7 @@
 // Dev-only mock game states: open the app with ?mock=<type> to preview any
 // challenge UI without the serverless backend (vite dev has no /api runtime).
 // Types: hub, steps, steps-veiled, trivia, bounty, photo, drawguess,
-// drawguess-guess, riddle, guide, territory
+// drawguess-guess, riddle, guide, territory, territory-end
 
 const TEAM_FIXTURES = [
   { uid: 'u-faucon', username: 'faucon', score: 320 },
@@ -155,53 +155,70 @@ export function buildMockGame(type) {
         mockPos: { lat: 33.8938, lng: 35.5018, accuracy: 8 },
       };
       break;
-    case 'territory': {
-      const cols = 40;
-      const rows = 40;
-      const field = {
-        centerLat: 33.8938,
-        centerLng: 35.5018,
-        cellSizeM: 12,
-        cols,
-        rows,
-        latPerCell: 12 / 111320,
-        lngPerCell: 12 / (111320 * Math.cos((33.8938 * Math.PI) / 180)),
-        originLat: 33.8938 + (rows / 2) * (12 / 111320),
-        originLng: 35.5018 - (cols / 2) * (12 / (111320 * Math.cos((33.8938 * Math.PI) / 180))),
-      };
-      const grid = Array(cols * rows).fill('.');
-      const blob = (cx, cy, r, ch) => {
-        for (let y = cy - r; y <= cy + r; y++) {
-          for (let x = cx - r; x <= cx + r; x++) {
-            if (x >= 0 && x < cols && y >= 0 && y < rows && (x - cx) ** 2 + (y - cy) ** 2 <= r * r) {
-              grid[y * cols + x] = ch;
-            }
-          }
+    case 'territory':
+    case 'territory-end': {
+      const LAT = 33.8938;
+      const LNG = 35.5018;
+      const mLat = 111320;
+      const mLng = 111320 * Math.cos((LAT * Math.PI) / 180);
+      const pt = (dxM, dyM) => [LNG + dxM / mLng, LAT + dyM / mLat];
+      // Wobbly organic blob (like a real walked loop) around an offset center.
+      const blob = (cx, cy, r, wobble = 0.3, steps = 22) => {
+        const ring = [];
+        for (let i = 0; i < steps; i++) {
+          const a = (i / steps) * 2 * Math.PI;
+          const rr = r * (1 + wobble * Math.sin(a * 3 + cx));
+          ring.push(pt(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr));
         }
+        ring.push(ring[0]);
+        return [[ring]];
       };
-      blob(10, 12, 6, '0');
-      blob(28, 10, 5, '1');
-      blob(20, 28, 7, '2');
-      blob(32, 30, 4, '3');
-      blob(8, 32, 3, '4');
-      const trail = [];
-      for (let i = 0; i < 10; i++) trail.push((12 + i) * cols + (16 + i));
+      const path = (fromX, fromY, toX, toY, steps = 14) => {
+        const pts = [];
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          pts.push(
+            pt(
+              fromX + (toX - fromX) * t + Math.sin(t * 6) * 12,
+              fromY + (toY - fromY) * t + Math.cos(t * 5) * 9
+            )
+          );
+        }
+        return pts;
+      };
+      const ended = type === 'territory-end';
       base.challenge = {
         ...common,
         type: 'territory',
-        endAtMs: now + 900_000,
-        field,
-        grid: grid.join(''),
-        trails: { 'u-faucon': trail },
+        status: ended ? 'ended' : 'active',
+        running: !ended,
+        endAtMs: ended ? now - 60_000 : now + 900_000,
+        seedRadiusM: 25,
         teams: [
-          { uid: 'u-faucon', index: 0, username: 'faucon', cells: 113 },
-          { uid: 'u-panda', index: 2, username: 'panda', cells: 149 },
-          { uid: 'u-requin', index: 1, username: 'requin', cells: 81 },
-          { uid: 'u-leopard', index: 3, username: 'leopard', cells: 49 },
-          { uid: 'u-bison', index: 4, username: 'bison', cells: 29 },
+          { uid: 'u-panda', username: 'panda', areaM2: 14800 },
+          { uid: 'u-faucon', username: 'faucon', areaM2: 11300 },
+          { uid: 'u-requin', username: 'requin', areaM2: 8100 },
+          { uid: 'u-leopard', username: 'leopard', areaM2: 4600 },
+          { uid: 'u-bison', username: 'bison', areaM2: 1900 },
         ],
-        ownIndex: 0,
-        mockPos: { lat: 33.8938, lng: 35.5018 },
+        territories: {
+          'u-faucon': blob(-120, 60, 65),
+          'u-panda': blob(90, 90, 72),
+          'u-requin': blob(140, -80, 55),
+          'u-leopard': blob(-60, -130, 42),
+          'u-bison': blob(-200, -40, 26),
+        },
+        trails: ended
+          ? {}
+          : {
+              'u-faucon': path(-70, 90, 60, 140),
+              'u-requin': path(120, -40, 40, 30, 8),
+            },
+        tracks: ended
+          ? { 'u-faucon': [...path(-120, 60, 100, 120, 30), ...path(100, 120, -60, -100, 30)] }
+          : undefined,
+        mockMeUid: 'u-faucon',
+        mockPos: { lat: LAT + 0.0008, lng: LNG - 0.0006 },
       };
       break;
     }

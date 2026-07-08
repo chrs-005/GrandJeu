@@ -9,7 +9,7 @@ import {
   sendError,
   withErrorHandling,
 } from './_lib/core.js';
-import { haversineMeters, latLngToCell, applyMove, countCells } from './_lib/territory.js';
+import { haversineMeters, applyTerritoryMove, territoryAreas, parseGeom } from './_lib/territory.js';
 
 // Drawings/photos are immutable once submitted, so cache media reads (guess phase).
 const mediaCache = new Map(); // `${challengeId}:${uid}` -> { data, ts }
@@ -165,25 +165,31 @@ async function buildChallengeView(db, challenge, uid) {
     }
 
     case 'territory': {
-      const field = config.field;
-      const teamIndex = config.teamIndex || {};
-      const grid = challenge.grid || '';
-      const counts = countCells(grid, Object.keys(teamIndex).length);
-      return {
+      const teamNames = config.teamNames || {};
+      const areas = territoryAreas(challenge);
+      const territories = {};
+      const trails = {};
+      for (const id of Object.keys(teamNames)) {
+        territories[id] = parseGeom(challenge.territories?.[id], []);
+        trails[id] = parseGeom(challenge.trails?.[id], []);
+      }
+      const view = {
         ...base,
-        field,
-        grid,
-        trails: challenge.trails || {},
-        teams: Object.entries(teamIndex)
-          .map(([id, idx]) => ({
-            uid: id,
-            index: idx,
-            username: config.teamNames?.[id] || id,
-            cells: counts[idx] || 0,
-          }))
-          .sort((a, b) => b.cells - a.cells),
-        ownIndex: teamIndex[uid] ?? null,
+        seedRadiusM: config.seedRadiusM,
+        teams: Object.entries(teamNames)
+          .map(([id, name]) => ({ uid: id, username: name, areaM2: areas[id] || 0 }))
+          .sort((a, b) => b.areaM2 - a.areaM2),
+        territories,
+        trails,
       };
+      // Run-tracker replay: full walked paths once the conquest is over.
+      if (!running) {
+        view.tracks = {};
+        for (const id of Object.keys(teamNames)) {
+          view.tracks[id] = parseGeom(challenge.tracks?.[id], []);
+        }
+      }
+      return view;
     }
 
     case 'riddle':
@@ -490,17 +496,13 @@ async function handlePost(req, res) {
         if (challenge.type !== 'territory') throw new Error('Mauvais type de défi.');
         if (challenge.status !== 'active' || now >= challenge.endAtMs) return { ended: true };
         if (now < challenge.startAtMs) return { waiting: true };
-        const cell = latLngToCell(challenge.config.field, latitude, longitude);
-        if (cell < 0) return { outside: true };
-        const moved = applyMove(challenge, uid, cell);
+        const moved = applyTerritoryMove(challenge, uid, latitude, longitude);
         if (!moved) throw new Error('Équipe inconnue.');
         tx.update(ref, {
-          grid: moved.grid,
-          [`trails.${uid}`]: moved.trail,
-          [`lastCell.${uid}`]: moved.lastCell,
+          ...moved.updates,
           [`board.${uid}`]: { username, updatedAtMs: now },
         });
-        return { captured: moved.captured };
+        return { captured: moved.captured, areaM2: Math.round(moved.areaM2) };
       });
       // No cache invalidation: the 2.5s state cache keeps polling cheap and the
       // grid is never more than a couple seconds stale on other phones.
