@@ -124,11 +124,6 @@ export default function GuideChallenge({ user, challenge, refresh }) {
         <>
           <div
             className="compass-hero"
-            style={
-              warmth
-                ? { background: `radial-gradient(circle at 50% 40%, ${warmth.glow}, ${warmth.color} 75%)` }
-                : undefined
-            }
           >
             {pos ? (
               <>
@@ -144,10 +139,11 @@ export default function GuideChallenge({ user, challenge, refresh }) {
                     style={{ transform: `rotate(${arrowRotation}deg)` }}
                     viewBox="0 0 100 100"
                   >
+                    {/* Arrow color carries the hot/cold cue over the parchment panel. */}
                     <path
                       d="M50 3 L81 76 L50 58 L19 76 Z"
-                      fill="#17100a"
-                      stroke="rgba(236,217,168,0.9)"
+                      fill={warmth ? warmth.color : '#241608'}
+                      stroke="rgba(36,22,8,0.6)"
                       strokeWidth="3.5"
                       strokeLinejoin="round"
                     />

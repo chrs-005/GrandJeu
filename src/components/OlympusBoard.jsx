@@ -1,5 +1,5 @@
 import { teamInfo } from '../config/gameConfig';
-import olympusImg from '../assets/olympus.jpg';
+import olympusImg from '../assets/bg-home.jpg';
 
 const RANK_LABELS = ['🥇', '🥈', '🥉'];
 

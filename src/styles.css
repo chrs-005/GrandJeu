@@ -680,28 +680,28 @@ select:focus {
 .challenge-starting { padding: 18px 16px 0; }
 
 /* Per-god scene backdrops + accents */
-.challenge-steps .challenge-header { background-image: url('./assets/bg-hermes.png'); }
+.challenge-steps .challenge-header { background-image: url('./assets/bg-hermes.jpg'); }
 .challenge-steps { --accent: #d9a441; --accent-shadow: rgba(36, 22, 8, 0.35); }
 
-.challenge-trivia .challenge-header { background-image: url('./assets/bg-oracle.png'); }
+.challenge-trivia .challenge-header { background-image: url('./assets/bg-oracle.jpg'); }
 .challenge-trivia { --accent: #b58cc4; --accent-shadow: rgba(26, 14, 28, 0.45); }
 
-.challenge-bounty .challenge-header { background-image: url('./assets/bg-medusa.png'); }
+.challenge-bounty .challenge-header { background-image: url('./assets/bg-medusa.jpg'); }
 .challenge-bounty { --accent: #9cb96a; --accent-shadow: rgba(20, 24, 12, 0.5); }
 
-.challenge-photo .challenge-header { background-image: url('./assets/bg-heracles.png'); }
+.challenge-photo .challenge-header { background-image: url('./assets/bg-heracles.jpg'); }
 .challenge-photo { --accent: #d97a52; --accent-shadow: rgba(30, 12, 6, 0.5); }
 
-.challenge-drawguess .challenge-header { background-image: url('./assets/bg-muses.png'); }
+.challenge-drawguess .challenge-header { background-image: url('./assets/bg-muses.jpg'); }
 .challenge-drawguess { --accent: #cfa85e; --accent-shadow: rgba(36, 22, 8, 0.4); }
 
-.challenge-guide .challenge-header { background-image: url('./assets/bg-ariadne.png'); }
+.challenge-guide .challenge-header { background-image: url('./assets/bg-ariadne.jpg'); }
 .challenge-guide { --accent: #8d94d3; --accent-shadow: rgba(18, 19, 36, 0.55); }
 
-.challenge-territory .challenge-header { background-image: url('./assets/bg-ares.png'); }
+.challenge-territory .challenge-header { background-image: url('./assets/bg-ares.jpg'); }
 .challenge-territory { --accent: #e06a4a; --accent-shadow: rgba(30, 8, 5, 0.55); }
 
-.challenge-riddle .challenge-header { background-image: url('./assets/bg-sphinx.png'); }
+.challenge-riddle .challenge-header { background-image: url('./assets/bg-sphinx.jpg'); }
 .challenge-riddle { --accent: #c98f3a; --accent-shadow: rgba(36, 22, 8, 0.45); }
 
 /* --------------------------------------------------------------------------
