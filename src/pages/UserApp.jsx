@@ -211,7 +211,6 @@ export default function UserApp() {
   const navigate = useNavigate();
   const { data, error, refresh, serverNow } = useGame(currentUser);
   const now = useNow(serverNow);
-  const [lastPush, setLastPush] = useState(null);
   const [tab, setTab] = useState('home');
   const prevChallengeRef = useRef(null);
   // Onboarding + persistent GPS state (survives reloads via localStorage).
@@ -225,8 +224,7 @@ export default function UserApp() {
   useEffect(() => {
     if (!('BroadcastChannel' in window)) return undefined;
     const ch = new BroadcastChannel('push-channel');
-    ch.onmessage = (e) => {
-      setLastPush(e.data);
+    ch.onmessage = () => {
       refresh();
     };
     return () => ch.close();
@@ -280,11 +278,6 @@ export default function UserApp() {
 
   return (
     <div className="app-shell" style={{ '--team-color': info.color }}>
-      {lastPush && (
-        <button className="push-banner push-float" onClick={() => setLastPush(null)} type="button">
-          🪽 <strong>{lastPush.title}</strong> — {lastPush.body}
-        </button>
-      )}
       {error && <div className="alert alert-error toast-error">{error}</div>}
 
       <div className="app-view">
