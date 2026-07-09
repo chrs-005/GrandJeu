@@ -1,24 +1,20 @@
-import { challengeMeta } from '../config/gameConfig';
+import { formatRemaining } from '../hooks/useNow';
 import Countdown from './Countdown';
 
-// Immersive challenge page: the god's full painted artboard is a fixed backdrop
-// (frame + illustration), the god plaque + timer are overlaid on the scene, and
-// `children` float on the parchment zone below.
+// Immersive challenge page: the god's painted artboard is the fixed backdrop.
+// No title plaque (the bottom tab already names the challenge) — just a small
+// transparent timer up top and the challenge content filling the parchment
+// below the illustration.
 export default function ChallengeShell({ challenge, now, children, showTimer = true }) {
-  const meta = challengeMeta(challenge.type);
   const started = now >= challenge.startAtMs;
 
   return (
     <section className={`challenge-shell challenge-${challenge.type}`}>
-      <header className="challenge-header">
-        <div className="challenge-scene-shade" />
-        <div className="challenge-heading">
-          <span className="challenge-god">{meta.god}</span>
-          <h2 className="challenge-title">{meta.title}</h2>
-          <p className="challenge-tagline">{meta.tagline}</p>
-        </div>
-        {started && showTimer && <Countdown endAtMs={challenge.endAtMs} now={now} />}
-      </header>
+      {started && showTimer && (
+        <div className="challenge-timer-top">{formatRemaining(challenge.endAtMs - now)}</div>
+      )}
+
+      <div className="challenge-header challenge-scene" />
 
       {!started && challenge.status === 'active' && (
         <div className="challenge-starting">

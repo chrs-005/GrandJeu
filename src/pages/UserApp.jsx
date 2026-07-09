@@ -44,7 +44,7 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
 // Home tab: team card + Mount Olympus leaderboard floating on the temple
 // artboard (design's "HOME — MOUNT OLYMPUS"). One fixed screen, no scroll.
-function HomeScreen({ info, score, teams, meUid, isAdmin, onAdmin, onLogout }) {
+function HomeScreen({ info, teams, meUid, isAdmin, onAdmin, onLogout }) {
   return (
     <section className="challenge-shell home-screen">
       <div className="home-scene">
@@ -53,10 +53,6 @@ function HomeScreen({ info, score, teams, meUid, isAdmin, onAdmin, onLogout }) {
           <div className="home-team-meta">
             <strong>{info.title}</strong>
             <span>Sous la protection de {info.god}</span>
-          </div>
-          <div className="home-score">
-            <b>{score ?? '…'}</b>
-            <small>PTS</small>
           </div>
         </div>
       </div>
@@ -313,7 +309,6 @@ export default function UserApp() {
             meUid={data?.me?.uid}
             onAdmin={() => navigate('/admin')}
             onLogout={handleLogout}
-            score={data?.me?.score}
             teams={data?.teams}
           />
         )}

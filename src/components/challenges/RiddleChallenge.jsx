@@ -69,11 +69,6 @@ export default function RiddleChallenge({ user, challenge, now, refresh }) {
         <div className="alert alert-info">Le Sphinx s’est envolé. L’énigme est close.</div>
       )}
 
-      <p className="hint-live">
-        {challenge.solvedCount || 0} équipe{(challenge.solvedCount || 0) > 1 ? 's ont' : ' a'} résolu
-        l’énigme.
-      </p>
-
       {error && <div className="alert alert-error">{error}</div>}
     </div>
   );

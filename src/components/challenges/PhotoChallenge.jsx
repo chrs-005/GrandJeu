@@ -37,9 +37,6 @@ export default function PhotoChallenge({ user, challenge, now, refresh }) {
           <>
             <span className="mission-label">Méduse a pris possession de :</span>
             <p className="mission-target">🐍 {challenge.target}</p>
-            <p className="mission-detail">
-              Capturez son image pour le pétrifier — sans croiser directement son regard !
-            </p>
           </>
         ) : (
           <>
@@ -68,11 +65,6 @@ export default function PhotoChallenge({ user, challenge, now, refresh }) {
           {own ? 'L’épreuve est close. Les dieux délibèrent…' : 'Trop tard, l’épreuve est close.'}
         </div>
       )}
-
-      <p className="hint-live">
-        {challenge.submittedCount || 0} équipe{(challenge.submittedCount || 0) > 1 ? 's ont' : ' a'} déjà
-        soumis une photo.
-      </p>
 
       {status && <div className="alert alert-success">{status}</div>}
       {error && <div className="alert alert-error">{error}</div>}

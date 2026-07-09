@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { gameAction } from '../../services/api';
+import { formatRemaining } from '../../hooks/useNow';
 import DrawingCanvas from '../DrawingCanvas';
-import Countdown from '../Countdown';
 
 // Gartic-phone style: phase 1 each team draws its prompt, phase 2 each team
 // guesses another team's drawing.
@@ -44,32 +44,21 @@ export default function DrawGuessChallenge({ user, challenge, now, refresh }) {
     <div className="drawguess-challenge">
       {phase === 'draw' && (
         <>
-          <div className="mission-box">
-            <span className="mission-label">Les Muses vous inspirent :</span>
-            <p className="mission-target">🎨 {challenge.prompt}</p>
-            <p className="mission-detail">
-              Dessinez — une autre équipe devra deviner ce que c’est. Pas de lettres ni de chiffres !
-            </p>
+          <div className="draw-prompt">
+            <span className="draw-prompt-word">🎨 {challenge.prompt}</span>
+            <span className="draw-deadline">✎ {formatRemaining(challenge.drawEndAtMs - now)}</span>
           </div>
-          <Countdown endAtMs={challenge.drawEndAtMs} now={now} label="Fin du dessin dans" />
           <DrawingCanvas
             disabled={now < challenge.startAtMs}
             submitted={challenge.drawingSubmitted}
             onSubmit={submitDrawing}
             resetKey={challenge.id}
           />
-          {challenge.drawingSubmitted && (
-            <p className="hint-live">Tu peux encore modifier et renvoyer avant la fin du temps.</p>
-          )}
         </>
       )}
 
       {phase === 'guess' && (
         <>
-          <div className="mission-box">
-            <span className="mission-label">Une fresque mystérieuse vous parvient…</span>
-            <p className="mission-detail">Que représente ce dessin ? Répondez avant la fin du temps !</p>
-          </div>
           {challenge.sourceDrawing ? (
             <img alt="Dessin à deviner" className="guess-drawing" src={challenge.sourceDrawing} />
           ) : (
