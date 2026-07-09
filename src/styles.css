@@ -2147,7 +2147,7 @@ select:focus {
 /* Content body - Home only */
 .home-screen .challenge-body {
   position: relative;
-  transform: translate(0px, 70px) scale(1);
+  transform: translate(0px, 48px) scale(1);
   transform-origin: center center;
   width: 100%;
   padding: 14px;
@@ -2156,7 +2156,7 @@ select:focus {
 /* Home team box - Home only */
 .home-screen .home-team-card {
   position: relative;
-  transform: translate(0px, 87px) scale(1);
+  transform: translate(0px, 67px) scale(1);
   transform-origin: center center;
   width: 100%;
   padding: 12px;
@@ -2165,9 +2165,9 @@ select:focus {
 /* Content body - Oracle / Trivia only */
 .challenge-trivia .challenge-body {
   position: relative;
-  transform: translate(12px, 17px) scale(1);
+  transform: translate(0px, -19px) scale(1);
   transform-origin: center center;
-  width: 95%;
+  width: 100%;
   padding: 14px;
 }
 
