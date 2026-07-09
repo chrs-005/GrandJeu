@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useGame } from '../hooks/useGame';
@@ -13,9 +13,7 @@ import {
   saveSubscription,
   getExistingSubscription,
 } from '../services/notifications';
-import { teamInfo, challengeMeta, APP_NAME, APP_SUBTITLE } from '../config/gameConfig';
-import OlympusBoard from '../components/OlympusBoard';
-import friezeImg from '../assets/frieze.jpg';
+import { teamInfo, challengeMeta } from '../config/gameConfig';
 import ChallengeShell from '../components/ChallengeShell';
 import StepsChallenge from '../components/challenges/StepsChallenge';
 import TriviaChallenge from '../components/challenges/TriviaChallenge';
@@ -39,6 +37,65 @@ const CHALLENGE_COMPONENTS = {
 function isStandalone() {
   return (
     window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true
+  );
+}
+
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+
+// Home tab: team card + Mount Olympus leaderboard floating on the temple
+// artboard (design's "HOME — MOUNT OLYMPUS"). One fixed screen, no scroll.
+function HomeScreen({ info, score, teams, meUid, isAdmin, onAdmin, onLogout }) {
+  return (
+    <section className="challenge-shell home-screen">
+      <div className="home-scene">
+        <div className="home-team-card">
+          <span className="app-emblem">{info.emblem}</span>
+          <div className="home-team-meta">
+            <strong>{info.title}</strong>
+            <span>Sous la protection de {info.god}</span>
+          </div>
+          <div className="home-score">
+            <b>{score ?? '…'}</b>
+            <small>PTS</small>
+          </div>
+        </div>
+      </div>
+
+      <div className="challenge-body home-body">
+        <div className="leader-card">
+          <div className="leader-title">Mont Olympe</div>
+          <ol className="leader-list">
+            {(teams || []).map((team, i) => {
+              const ti = teamInfo(team.username);
+              return (
+                <li className={`leader-row ${team.uid === meUid ? 'is-me' : ''}`} key={team.uid}>
+                  <span className="leader-rank">{ROMAN[i] || i + 1}</span>
+                  <span className="leader-emblem">{ti.emblem}</span>
+                  <span className="leader-name">{ti.title}</span>
+                  <strong className="leader-score">{team.score}</strong>
+                </li>
+              );
+            })}
+            {!teams?.length && (
+              <li className="leader-row">
+                <span className="leader-name">En attente des équipes…</span>
+              </li>
+            )}
+          </ol>
+        </div>
+
+        <div className="home-actions">
+          {isAdmin && (
+            <button className="btn btn-admin btn-sm" onClick={onAdmin} type="button">
+              ⚡ Console
+            </button>
+          )}
+          <button className="btn btn-ghost btn-sm" onClick={onLogout} type="button">
+            Sortir
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -159,6 +216,8 @@ export default function UserApp() {
   const { data, error, refresh, serverNow } = useGame(currentUser);
   const now = useNow(serverNow);
   const [lastPush, setLastPush] = useState(null);
+  const [tab, setTab] = useState('home');
+  const prevChallengeRef = useRef(null);
   // Onboarding + persistent GPS state (survives reloads via localStorage).
   const [gpsOn, setGpsOn] = useState(() => localStorage.getItem('olympe-gps') === '1');
   const [ritualsDone, setRitualsDone] = useState(() => localStorage.getItem('olympe-rituals') === '1');
@@ -197,8 +256,15 @@ export default function UserApp() {
   const challenge = data?.challenge;
   const ChallengeComponent = challenge ? CHALLENGE_COMPONENTS[challenge.type] : null;
   const meta = challenge ? challengeMeta(challenge.type) : null;
+  const challengeId = challenge?.id || null;
 
-  const immersive = Boolean(challenge && ChallengeComponent);
+  // Jump to the challenge page when a new one drops; fall back home when it
+  // clears. The challenge lives in its own tab, never over the home page.
+  useEffect(() => {
+    if (challengeId && challengeId !== prevChallengeRef.current) setTab('challenge');
+    else if (!challengeId) setTab('home');
+    prevChallengeRef.current = challengeId;
+  }, [challengeId]);
 
   // Gate: request permissions once, up front, before the game (design's
   // "Sacred Rituals" screen). Skipped forever once completed.
@@ -214,87 +280,64 @@ export default function UserApp() {
     );
   }
 
-  return (
-    <div className={`app-page ${immersive ? 'app-immersive' : ''}`} style={{ '--team-color': info.color }}>
-      {immersive ? (
-        // Challenge screens are full-bleed artboards; keep only a minimal
-        // floating score + exit so the diorama stays uncluttered.
-        <div className="immersive-bar">
-          <span className="immersive-score">{info.emblem} {data?.me?.score ?? '…'} pts</span>
-          <button className="btn btn-ghost btn-sm" onClick={handleLogout} type="button">
-            Sortir
-          </button>
-        </div>
-      ) : (
-        <header className="app-header">
-          <div className="app-team">
-            <span className="app-emblem">{info.emblem}</span>
-            <div>
-              <strong className="app-team-name">{info.title}</strong>
-              <span className="app-god">Sous la protection de {info.god}</span>
-            </div>
-          </div>
-          <div className="app-header-right">
-            <div className="app-score">
-              <span className="app-score-value">{data?.me?.score ?? '…'}</span>
-              <span className="app-score-label">pts</span>
-            </div>
-            <button className="btn btn-ghost btn-sm" onClick={handleLogout} type="button">
-              Sortir
-            </button>
-          </div>
-        </header>
-      )}
+  const onChallengeTab = tab === 'challenge' && challenge && ChallengeComponent;
 
+  return (
+    <div className="app-shell" style={{ '--team-color': info.color }}>
       {lastPush && (
-        <button className="push-banner" onClick={() => setLastPush(null)} type="button">
+        <button className="push-banner push-float" onClick={() => setLastPush(null)} type="button">
           🪽 <strong>{lastPush.title}</strong> — {lastPush.body}
         </button>
       )}
+      {error && <div className="alert alert-error toast-error">{error}</div>}
 
-      {error && <div className="alert alert-error">{error}</div>}
-
-      <main className="app-main">
-        {challenge && ChallengeComponent ? (
-          <>
-            <ChallengeShell challenge={challenge} now={now}>
-              {challenge.status === 'active' && now < challenge.startAtMs ? (
-                <p className="challenge-intro">{meta.playerIntro}</p>
-              ) : (
-                // During play the design goes straight to the challenge (no intro
-                // paragraph) so everything fits the fixed artboard.
-                <ChallengeComponent
-                  challenge={challenge}
-                  now={now}
-                  refresh={refresh}
-                  serverNow={serverNow}
-                  user={currentUser}
-                />
-              )}
-            </ChallengeShell>
-            {data?.teams && !challenge.running && <OlympusBoard highlightUid={data.me.uid} teams={data.teams} />}
-          </>
-        ) : (
-          <>
-            <div className="waiting-hero">
-              <img alt="Procession des dieux" className="waiting-frieze" src={friezeImg} />
-              <h1 className="logo-title">{APP_NAME}</h1>
-              <p className="subtitle">{APP_SUBTITLE}</p>
-              <p className="waiting-text">
-                Les dieux observent en silence… Le prochain défi peut tomber de l’Olympe à tout
-                moment. Gardez l’app ouverte !
-              </p>
-            </div>
-            {data?.teams && <OlympusBoard highlightUid={data?.me?.uid} teams={data.teams} />}
-
-            {userRole === 'admin' && (
-              <button className="btn btn-admin" onClick={() => navigate('/admin')} type="button">
-                ⚡ Console des dieux (admin)
-              </button>
+      <div className="app-view">
+        {onChallengeTab ? (
+          <ChallengeShell challenge={challenge} now={now}>
+            {challenge.status === 'active' && now < challenge.startAtMs ? (
+              <p className="challenge-intro">{meta.playerIntro}</p>
+            ) : (
+              <ChallengeComponent
+                challenge={challenge}
+                now={now}
+                refresh={refresh}
+                serverNow={serverNow}
+                user={currentUser}
+              />
             )}
-          </>
+          </ChallengeShell>
+        ) : (
+          <HomeScreen
+            info={info}
+            isAdmin={userRole === 'admin'}
+            meUid={data?.me?.uid}
+            onAdmin={() => navigate('/admin')}
+            onLogout={handleLogout}
+            score={data?.me?.score}
+            teams={data?.teams}
+          />
         )}
-      </main>
+      </div>
+
+      <nav className="tab-bar">
+        <button
+          className={`tab-btn ${tab === 'home' ? 'is-active' : ''}`}
+          onClick={() => setTab('home')}
+          type="button"
+        >
+          <span className="tab-icon">🏛️</span>
+          <span className="tab-label">Accueil</span>
+        </button>
+        <button
+          className={`tab-btn ${tab === 'challenge' ? 'is-active' : ''} ${challenge ? '' : 'is-disabled'}`}
+          disabled={!challenge}
+          onClick={() => challenge && setTab('challenge')}
+          type="button"
+        >
+          <span className="tab-icon">{meta ? meta.icon : '⚔️'}</span>
+          <span className="tab-label">{meta ? meta.title.replace(/^(La |Le |Les |L’)/, '') : 'Aucun défi'}</span>
+        </button>
+      </nav>
     </div>
   );
 }
