@@ -28,6 +28,8 @@
   --font-display: 'Cinzel', 'Times New Roman', serif;
   --font-greek: 'Caesar Dressing', 'Cinzel', serif;
   --font-body: 'Crimson Pro', Georgia, serif;
+  --device-safe-top: env(safe-area-inset-top, 0px);
+  --device-safe-bottom: env(safe-area-inset-bottom, 0px);
 
   /* Cut-out paper recipes: crisp outline + hard offset shadow */
   --cut-line: 0 0 0 1px rgba(36, 22, 8, 0.5);
@@ -1797,7 +1799,7 @@ select:focus {
 .app-shell {
   display: flex;
   flex-direction: column;
-  inset: 0;
+  inset: var(--device-safe-top) 0 0;
   margin: 0 auto;
   max-width: 460px;
   overflow: hidden;
@@ -1836,9 +1838,14 @@ select:focus {
   display: flex;
   flex-shrink: 0;
   gap: 8px;
-  padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 10px calc(8px + var(--device-safe-bottom));
   position: relative;
   z-index: 5;
+}
+
+.app-shell .challenge-shell::before {
+  bottom: 0;
+  top: var(--device-safe-top);
 }
 
 .tab-btn {
