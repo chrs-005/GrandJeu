@@ -105,7 +105,7 @@ export default function TriviaChallenge({ user, challenge, now, refresh }) {
   return (
     <div className="trivia-active">
       <div className="trivia-progress">
-        Question {currentIndex + 1}/{questions.length}
+        <span className="trivia-count">Question {currentIndex + 1}/{questions.length}</span>
         <span className="trivia-timer">{formatRemaining(question.endAtMs - now)}</span>
       </div>
       <p className="trivia-question-text">{question.q}</p>

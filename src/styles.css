@@ -1636,3 +1636,156 @@ select:focus {
   .logo-title { font-size: 36px; }
   .challenge-header { min-height: 240px; }
 }
+
+/* ==========================================================================
+   IMMERSIVE CHALLENGE PAGE
+   Each challenge is its god's full painted artboard (frame + illustration
+   baked into the image) as a fixed backdrop, with the god plaque + timer
+   overlaid where the diorama meets the parchment (~45% down) and all content
+   floating on the parchment zone below. Matches the Claude Design artboards.
+   ========================================================================== */
+
+/* Per-god artboard (full scene, used as the fixed backdrop) */
+.challenge-steps     { --artboard: url('./assets/bg-hermes.jpg'); }
+.challenge-trivia    { --artboard: url('./assets/bg-oracle.jpg'); }
+.challenge-bounty    { --artboard: url('./assets/bg-medusa.jpg'); }
+.challenge-photo     { --artboard: url('./assets/bg-heracles.jpg'); }
+.challenge-drawguess { --artboard: url('./assets/bg-muses.jpg'); }
+.challenge-guide     { --artboard: url('./assets/bg-ariadne.jpg'); }
+.challenge-territory { --artboard: url('./assets/bg-ares.jpg'); }
+.challenge-riddle    { --artboard: url('./assets/bg-sphinx.jpg'); }
+.rituals-screen      { --artboard: url('./assets/bg-home.jpg'); --accent: #d8a44a; }
+
+/* Full-bleed immersive page: no page padding stealing vertical room */
+.app-immersive {
+  padding-bottom: 4px;
+  padding-top: 8px;
+}
+
+/* Immersive top bar (replaces the team header on challenge screens) */
+.immersive-bar {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  position: relative;
+  z-index: 2;
+}
+
+.immersive-score {
+  background: rgba(36, 22, 8, 0.72);
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(242, 224, 184, 0.35);
+  color: var(--cream);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  padding: 5px 14px;
+}
+
+.immersive-bar .btn-ghost {
+  background: rgba(36, 22, 8, 0.72);
+  border-color: rgba(242, 224, 184, 0.35);
+  color: var(--cream);
+}
+
+/* The shell becomes a transparent full-height stage; the artboard is fixed
+   behind everything so the frame stays pinned to the screen edges and content
+   scrolls over the parchment. */
+.challenge-shell {
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  margin: -6px -14px 0;
+  min-height: calc(100dvh - 60px);
+  overflow: visible;
+  position: relative;
+  transform: none;
+}
+
+.challenge-shell::before {
+  background: var(--artboard) center top / cover no-repeat;
+  background-color: #b98a5e;
+  content: '';
+  inset: 0;
+  left: 0;
+  margin: 0 auto;
+  position: fixed;
+  right: 0;
+  width: min(100vw, 460px);
+  z-index: -1;
+}
+
+/* Scene region: transparent spacer over the diorama; plaque + timer at its
+   base (the diorama/parchment seam, ~45% down). */
+.challenge-shell .challenge-header {
+  align-items: flex-end;
+  background: none;
+  gap: 10px;
+  justify-content: space-between;
+  min-height: 43dvh;
+  padding: 16px;
+}
+
+.challenge-shell .challenge-header::after { content: none; }
+.challenge-scene-shade { display: none; }
+
+/* God plaque (ink cut-out) */
+.challenge-heading {
+  background: var(--ink);
+  border-radius: 8px;
+  box-shadow: 5px 6px 0 rgba(0, 0, 0, 0.4), inset 0 0 0 2px var(--accent);
+  flex: 1 1 auto;
+  max-width: 68%;
+  padding: 9px 15px;
+  transform: rotate(-0.8deg);
+}
+
+/* Timer plaque (cream cut-out, stacked label over time) */
+.challenge-shell .challenge-header .countdown {
+  align-items: flex-start;
+  align-self: flex-end;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 6px 14px;
+  transform: rotate(1deg);
+}
+
+.challenge-shell .challenge-header .countdown-label { font-size: 10px; }
+.challenge-shell .challenge-header .countdown-time { font-size: 22px; }
+
+/* Content floats on the parchment zone */
+.challenge-shell .challenge-body {
+  background: transparent;
+  gap: 12px;
+  padding: 14px 16px 40px;
+}
+
+/* Trivia question counter → dark pill (design shows it as a rounded chip) */
+.trivia-count {
+  background: var(--ink);
+  border-radius: 999px;
+  box-shadow: 2px 3px 0 rgba(36, 22, 8, 0.35);
+  color: var(--cream);
+  padding: 5px 14px;
+}
+
+/* Keep the 2×2 answer grid (the design never stacks to one column) so the
+   whole challenge fits the fixed artboard without scrolling. */
+.challenge-shell .trivia-options {
+  grid-template-columns: 1fr 1fr;
+}
+
+.challenge-shell .trivia-option {
+  min-height: 64px;
+}
+
+@media (max-width: 420px) {
+  .challenge-shell .challenge-header { min-height: 38dvh; }
+  .challenge-shell .challenge-body { gap: 9px; padding: 10px 14px 16px; }
+  .challenge-shell .trivia-option { min-height: 58px; }
+}

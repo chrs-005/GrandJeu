@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useGame } from '../hooks/useGame';
 import { useNow } from '../hooks/useNow';
-import { gameAction } from '../services/api';
+import { useLocationBroadcast } from '../hooks/useLocationBroadcast';
 import {
   isNotificationSupported,
   getNotificationPermission,
@@ -42,22 +42,18 @@ function isStandalone() {
   );
 }
 
-// "Rituels" panel: the permissions the player must grant before the game.
-function RitualsPanel({ user, onDone }) {
+// One-time onboarding gate shown right after login (matches the design's
+// "Sacred Rituals" screen). Requests notifications + GPS up front so the play
+// screens stay uncluttered and fixed. GPS then keeps broadcasting at the app
+// level via useLocationBroadcast — this screen only triggers the permission.
+function RitualsGate({ user, info, gpsOn, onEnableGps, onComplete }) {
   const [permission, setPermission] = useState(getNotificationPermission());
-  const [hasSubscription, setHasSubscription] = useState(null);
-  const [locationOn, setLocationOn] = useState(false);
+  const [hasSubscription, setHasSubscription] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const watchRef = useRef(null);
-  const lastSaveRef = useRef(0);
 
   useEffect(() => {
     getExistingSubscription().then((sub) => setHasSubscription(Boolean(sub)));
-    return () => {
-      // The watch keeps running while the app is open — do not clear on unmount
-      // of the panel, only on logout (page unload handles that).
-    };
   }, []);
 
   async function enableNotifications() {
@@ -90,73 +86,70 @@ function RitualsPanel({ user, onDone }) {
       setError('GPS non supporté.');
       return;
     }
-    if (watchRef.current !== null) return;
-    watchRef.current = navigator.geolocation.watchPosition(
-      (position) => {
-        const now = Date.now();
-        if (now - lastSaveRef.current < 10000) return;
-        lastSaveRef.current = now;
-        const { latitude, longitude, accuracy, heading, speed } = position.coords;
-        gameAction(user, 'location', { latitude, longitude, accuracy, heading, speed }).catch(() => {});
-        setLocationOn(true);
-      },
+    navigator.geolocation.getCurrentPosition(
+      () => onEnableGps(),
       (err) => setError(err.message || 'Permission GPS refusée.'),
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      { enableHighAccuracy: true, timeout: 15000 }
     );
-    setLocationOn(true);
   }
 
   const notifOk = permission === 'granted' && hasSubscription;
-  const allDone = notifOk && locationOn;
-
-  useEffect(() => {
-    if (allDone) onDone?.();
-  }, [allDone, onDone]);
 
   return (
-    <section className="rituals-panel">
-      <h3 className="section-title">🏛️ Les Rituels</h3>
-      <p className="rituals-intro">
-        Avant de servir les dieux, accomplissez les rituels sacrés :
-      </p>
+    <div className="app-page app-immersive" style={{ '--team-color': info.color }}>
+      <section className="challenge-shell rituals-screen">
+        <header className="challenge-header">
+          <div className="challenge-heading">
+            <span className="challenge-god">Olympe</span>
+            <h2 className="challenge-title">Les Rituels Sacrés</h2>
+            <p className="challenge-tagline">Avant de servir les dieux.</p>
+          </div>
+        </header>
 
-      <div className={`ritual-row ${notifOk ? 'is-done' : ''}`}>
-        <div>
-          <strong>🪽 L’offrande à Hermès</strong>
-          <span>Recevoir les messages des dieux (notifications)</span>
-        </div>
-        {notifOk ? (
-          <span className="badge badge-success">✓</span>
-        ) : (
-          <button className="btn btn-primary btn-sm" disabled={busy} onClick={enableNotifications} type="button">
-            Activer
+        <div className="challenge-body">
+          <div className={`ritual-row ${notifOk ? 'is-done' : ''}`}>
+            <div>
+              <strong>🪽 L’offrande à Hermès</strong>
+              <span>Recevoir les messages des dieux (notifications)</span>
+            </div>
+            {notifOk ? (
+              <span className="badge badge-success">✓</span>
+            ) : (
+              <button className="btn btn-primary btn-sm" disabled={busy} onClick={enableNotifications} type="button">
+                Activer
+              </button>
+            )}
+          </div>
+
+          <div className={`ritual-row ${gpsOn ? 'is-done' : ''}`}>
+            <div>
+              <strong>🏹 Le pacte d’Artémis</strong>
+              <span>Être visible des dieux sur la carte (GPS)</span>
+            </div>
+            {gpsOn ? (
+              <span className="badge badge-success">✓</span>
+            ) : (
+              <button className="btn btn-primary btn-sm" onClick={enableLocation} type="button">
+                Activer
+              </button>
+            )}
+          </div>
+
+          {!isStandalone() && (
+            <div className="alert alert-info">
+              📲 <strong>Important :</strong> installe l’app — bouton Partager → «&nbsp;Sur l’écran
+              d’accueil&nbsp;» — puis ouvre-la depuis l’icône, sinon les messages des dieux ne passeront pas.
+            </div>
+          )}
+
+          {error && <div className="alert alert-error">{error}</div>}
+
+          <button className="btn btn-primary btn-camera" onClick={onComplete} type="button">
+            ⚡ Entrer dans l’Olympe
           </button>
-        )}
-      </div>
-
-      <div className={`ritual-row ${locationOn ? 'is-done' : ''}`}>
-        <div>
-          <strong>🏹 Le pacte d’Artémis</strong>
-          <span>Être visible des dieux sur la carte (GPS)</span>
         </div>
-        {locationOn ? (
-          <span className="badge badge-success">✓</span>
-        ) : (
-          <button className="btn btn-primary btn-sm" onClick={enableLocation} type="button">
-            Activer
-          </button>
-        )}
-      </div>
-
-      {!isStandalone() && (
-        <div className="alert alert-info">
-          📲 <strong>Important :</strong> installe l’app — bouton Partager → «&nbsp;Sur l’écran
-          d’accueil&nbsp;» — et ouvre-la depuis l’icône, sinon les messages des dieux ne passeront pas.
-        </div>
-      )}
-
-      {error && <div className="alert alert-error">{error}</div>}
-    </section>
+      </section>
+    </div>
   );
 }
 
@@ -166,7 +159,12 @@ export default function UserApp() {
   const { data, error, refresh, serverNow } = useGame(currentUser);
   const now = useNow(serverNow);
   const [lastPush, setLastPush] = useState(null);
-  const [ritualsCollapsed, setRitualsCollapsed] = useState(false);
+  // Onboarding + persistent GPS state (survives reloads via localStorage).
+  const [gpsOn, setGpsOn] = useState(() => localStorage.getItem('olympe-gps') === '1');
+  const [ritualsDone, setRitualsDone] = useState(() => localStorage.getItem('olympe-rituals') === '1');
+
+  // One persistent GPS watch for the whole session (feeds the admin map).
+  useLocationBroadcast(currentUser, gpsOn);
 
   // Push payloads forwarded by the service worker while the app is open.
   useEffect(() => {
@@ -184,32 +182,69 @@ export default function UserApp() {
     navigate('/login');
   }
 
+  function enableGps() {
+    localStorage.setItem('olympe-gps', '1');
+    setGpsOn(true);
+  }
+
+  function completeRituals() {
+    localStorage.setItem('olympe-rituals', '1');
+    setRitualsDone(true);
+  }
+
   const username = data?.me?.username || currentUser?.email?.split('@')[0] || '';
   const info = teamInfo(username);
   const challenge = data?.challenge;
   const ChallengeComponent = challenge ? CHALLENGE_COMPONENTS[challenge.type] : null;
   const meta = challenge ? challengeMeta(challenge.type) : null;
 
+  const immersive = Boolean(challenge && ChallengeComponent);
+
+  // Gate: request permissions once, up front, before the game (design's
+  // "Sacred Rituals" screen). Skipped forever once completed.
+  if (!ritualsDone) {
+    return (
+      <RitualsGate
+        gpsOn={gpsOn}
+        info={info}
+        onComplete={completeRituals}
+        onEnableGps={enableGps}
+        user={currentUser}
+      />
+    );
+  }
+
   return (
-    <div className="app-page" style={{ '--team-color': info.color }}>
-      <header className="app-header">
-        <div className="app-team">
-          <span className="app-emblem">{info.emblem}</span>
-          <div>
-            <strong className="app-team-name">{info.title}</strong>
-            <span className="app-god">Sous la protection de {info.god}</span>
-          </div>
-        </div>
-        <div className="app-header-right">
-          <div className="app-score">
-            <span className="app-score-value">{data?.me?.score ?? '…'}</span>
-            <span className="app-score-label">pts</span>
-          </div>
+    <div className={`app-page ${immersive ? 'app-immersive' : ''}`} style={{ '--team-color': info.color }}>
+      {immersive ? (
+        // Challenge screens are full-bleed artboards; keep only a minimal
+        // floating score + exit so the diorama stays uncluttered.
+        <div className="immersive-bar">
+          <span className="immersive-score">{info.emblem} {data?.me?.score ?? '…'} pts</span>
           <button className="btn btn-ghost btn-sm" onClick={handleLogout} type="button">
             Sortir
           </button>
         </div>
-      </header>
+      ) : (
+        <header className="app-header">
+          <div className="app-team">
+            <span className="app-emblem">{info.emblem}</span>
+            <div>
+              <strong className="app-team-name">{info.title}</strong>
+              <span className="app-god">Sous la protection de {info.god}</span>
+            </div>
+          </div>
+          <div className="app-header-right">
+            <div className="app-score">
+              <span className="app-score-value">{data?.me?.score ?? '…'}</span>
+              <span className="app-score-label">pts</span>
+            </div>
+            <button className="btn btn-ghost btn-sm" onClick={handleLogout} type="button">
+              Sortir
+            </button>
+          </div>
+        </header>
+      )}
 
       {lastPush && (
         <button className="push-banner" onClick={() => setLastPush(null)} type="button">
@@ -226,16 +261,15 @@ export default function UserApp() {
               {challenge.status === 'active' && now < challenge.startAtMs ? (
                 <p className="challenge-intro">{meta.playerIntro}</p>
               ) : (
-                <>
-                  <p className="challenge-intro challenge-intro-small">{meta.playerIntro}</p>
-                  <ChallengeComponent
-                    challenge={challenge}
-                    now={now}
-                    refresh={refresh}
-                    serverNow={serverNow}
-                    user={currentUser}
-                  />
-                </>
+                // During play the design goes straight to the challenge (no intro
+                // paragraph) so everything fits the fixed artboard.
+                <ChallengeComponent
+                  challenge={challenge}
+                  now={now}
+                  refresh={refresh}
+                  serverNow={serverNow}
+                  user={currentUser}
+                />
               )}
             </ChallengeShell>
             {data?.teams && !challenge.running && <OlympusBoard highlightUid={data.me.uid} teams={data.teams} />}
@@ -252,27 +286,13 @@ export default function UserApp() {
               </p>
             </div>
             {data?.teams && <OlympusBoard highlightUid={data?.me?.uid} teams={data.teams} />}
+
+            {userRole === 'admin' && (
+              <button className="btn btn-admin" onClick={() => navigate('/admin')} type="button">
+                ⚡ Console des dieux (admin)
+              </button>
+            )}
           </>
-        )}
-
-        <div className="rituals-wrapper">
-          <button
-            className="btn btn-ghost btn-sm rituals-toggle"
-            onClick={() => setRitualsCollapsed((v) => !v)}
-            type="button"
-          >
-            {ritualsCollapsed ? '🏛️ Afficher les rituels' : '🏛️ Masquer les rituels'}
-          </button>
-          {/* Kept mounted (hidden) so the GPS watch keeps running when collapsed */}
-          <div style={ritualsCollapsed ? { display: 'none' } : undefined}>
-            <RitualsPanel user={currentUser} />
-          </div>
-        </div>
-
-        {userRole === 'admin' && (
-          <button className="btn btn-admin" onClick={() => navigate('/admin')} type="button">
-            ⚡ Console des dieux (admin)
-          </button>
         )}
       </main>
     </div>
