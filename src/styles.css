@@ -2126,3 +2126,96 @@ select:focus {
 
 /* Nudge the Muses artboard up a touch so the dancers sit higher */
 .challenge-shell.challenge-drawguess::before { background-position: center 34%; }
+
+/* Layout Lab overrides */
+/* Home team box - Home only */
+.home-screen .home-team-card {
+  position: relative;
+  transform: translate(0px, 17px) scale(1);
+  transform-origin: center center;
+  width: 100%;
+  padding: 12px;
+}
+
+/* Content body - Oracle / Trivia only */
+.challenge-trivia .challenge-body {
+  position: relative;
+  transform: translate(0px, -71px) scale(1);
+  transform-origin: center center;
+  width: 100%;
+  padding: 14px;
+}
+
+/* Content body - Heracles / Photo only */
+.challenge-photo .challenge-body {
+  position: relative;
+  transform: translate(0px, -47px) scale(1);
+  transform-origin: center center;
+  width: 100%;
+  padding: 14px;
+}
+
+/* Content body - Hermes / Steps only */
+.challenge-steps .challenge-body {
+  position: relative;
+  transform: translate(0px, -31px) scale(1);
+  transform-origin: center center;
+  width: 100%;
+  min-height: 1dvh;
+  padding: 14px;
+}
+
+/* Content body - Muses / Drawing only */
+.challenge-drawguess .challenge-body {
+  position: relative;
+  transform: translate(0px, -63px) scale(1);
+  transform-origin: center center;
+  width: 100%;
+  min-height: 46dvh;
+  padding: 14px;
+}
+
+/* Draw prompt - Muses / Drawing only */
+.challenge-drawguess .draw-prompt {
+  position: relative;
+  transform: translate(0px, 0px) scale(1);
+  transform-origin: center center;
+  width: 100%;
+  padding: 14px;
+}
+
+/* Content body - Ariadne / Guide only */
+.challenge-guide .challenge-body {
+  position: relative;
+  transform: translate(0px, -45px) scale(1);
+  transform-origin: center center;
+  width: 100%;
+  min-height: 38dvh;
+  padding: 14px;
+}
+
+/* Compass / guide box - Ariadne / Guide only */
+.challenge-guide .compass-hero {
+  position: relative;
+  transform: translate(0px, 0px) scale(1);
+  transform-origin: center center;
+  width: 100%;
+}
+
+/* Content body - Ares / Territory only */
+.challenge-territory .challenge-body {
+  position: relative;
+  transform: translate(0px, -130px) scale(1);
+  transform-origin: center center;
+  width: 100%;
+  min-height: 51dvh;
+  padding: 14px;
+}
+
+/* Territory stats - Ares / Territory only */
+.challenge-territory .terr-stats {
+  position: relative;
+  transform: translate(0px, 14px) scale(0.72);
+  transform-origin: center center;
+  width: 100%;
+}
