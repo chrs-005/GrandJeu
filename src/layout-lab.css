@@ -4,12 +4,10 @@
     radial-gradient(circle at 85% 18%, rgba(168, 60, 34, 0.14), transparent 32%),
     #110b06;
   color: #f2e0b8;
-  display: grid;
   font-family: var(--font-body);
-  gap: 18px;
-  grid-template-columns: minmax(300px, 430px) minmax(360px, 460px) minmax(280px, 380px);
   min-height: 100dvh;
-  padding: 18px;
+  overflow: hidden;
+  padding: 0;
 }
 
 .lab-panel,
@@ -22,10 +20,15 @@
 }
 
 .lab-panel {
-  align-self: start;
+  bottom: 18px;
+  left: 18px;
   max-height: calc(100dvh - 36px);
   overflow: auto;
   padding: 16px;
+  position: fixed;
+  top: 18px;
+  width: min(390px, calc(50vw - 260px));
+  z-index: 20;
 }
 
 .lab-title {
@@ -187,27 +190,22 @@
 }
 
 .lab-phone-wrap {
-  align-self: center;
-  justify-self: center;
-  padding: 14px;
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: 1;
 }
 
 .lab-phone {
-  background: #171009;
-  border: 3px solid #241608;
-  border-radius: 20px;
-  box-shadow: 0 0 0 1px rgba(242, 224, 184, 0.18), 0 22px 55px rgba(0, 0, 0, 0.55);
-  height: 820px;
-  max-height: calc(100dvh - 70px);
-  overflow: hidden;
-  position: relative;
-  width: min(390px, calc(100vw - 36px));
+  inset: 0;
+  margin: 0 auto;
+  max-width: 460px;
+  pointer-events: auto;
+  position: fixed;
 }
 
 .lab-phone .app-shell {
-  height: 100%;
-  position: absolute;
-  width: 100%;
+  box-shadow: 0 0 0 1px rgba(242, 224, 184, 0.14), 0 0 60px rgba(0, 0, 0, 0.45);
 }
 
 .lab-phone .challenge-shell::before {
@@ -328,12 +326,17 @@
 }
 
 .lab-code {
-  align-self: start;
   display: flex;
   flex-direction: column;
+  bottom: 18px;
+  right: 18px;
   max-height: calc(100dvh - 36px);
   overflow: hidden;
   padding: 16px;
+  position: fixed;
+  top: 18px;
+  width: min(360px, calc(50vw - 260px));
+  z-index: 20;
 }
 
 .lab-code textarea {
@@ -359,22 +362,32 @@
 }
 
 @media (max-width: 1180px) {
-  .lab-page {
-    grid-template-columns: 360px minmax(300px, 1fr);
-  }
-
-  .lab-code {
-    grid-column: 1 / -1;
-  }
+  .lab-panel { width: 330px; }
+  .lab-code { display: none; }
 }
 
 @media (max-width: 820px) {
   .lab-page {
-    grid-template-columns: 1fr;
+    overflow: auto;
+    padding-top: calc(100dvh + 16px);
   }
 
-  .lab-panel,
-  .lab-code {
+  .lab-panel {
+    margin: 12px;
     max-height: none;
+    position: static;
+    width: auto;
+  }
+
+  .lab-phone {
+    height: 100dvh;
+  }
+
+  .lab-code {
+    display: flex;
+    margin: 12px;
+    max-height: none;
+    position: static;
+    width: auto;
   }
 }
