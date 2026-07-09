@@ -1819,7 +1819,7 @@ select:focus {
 }
 
 .app-view .challenge-shell .challenge-header {
-  min-height: 40dvh;
+  min-height: 45dvh;
 }
 
 .app-view .challenge-body {
@@ -1886,8 +1886,8 @@ select:focus {
 .home-scene {
   align-items: flex-end;
   display: flex;
-  min-height: 42dvh;
-  padding: 16px;
+  min-height: 47dvh;
+  padding: 14px 16px;
 }
 
 .home-team-card {
@@ -1958,7 +1958,7 @@ select:focus {
   border-bottom: 1px solid rgba(23, 16, 10, 0.15);
   display: flex;
   gap: 10px;
-  padding: 8px 6px;
+  padding: 6px 6px;
 }
 .leader-row:last-child { border-bottom: none; }
 .leader-row.is-me { background: rgba(216, 164, 74, 0.2); border-radius: 6px; }
@@ -2015,17 +2015,45 @@ select:focus {
 
 /* Content-heavy challenges get a shorter scene so their body fits the fixed
    frame without scrolling. */
-.challenge-drawguess .challenge-header,
-.challenge-photo .challenge-header,
-.challenge-bounty .challenge-header,
-.challenge-steps .challenge-header {
-  min-height: 30dvh;
+.app-view .challenge-drawguess .challenge-header,
+.app-view .challenge-photo .challenge-header,
+.app-view .challenge-bounty .challenge-header,
+.app-view .challenge-steps .challenge-header {
+  min-height: 41dvh;
 }
 
-.app-view .steps-value { font-size: 46px; }
-.app-view .steps-counter { padding: 12px; }
+/* Compact immersive content so plaques + cards sit LOW on the artboard
+   (revealing the god illustration above) while still fitting the fixed frame. */
+.app-view .challenge-heading { padding: 8px 13px; }
+.app-view .challenge-title { font-size: 18px; }
+.app-view .challenge-tagline { font-size: 12.5px; }
+.app-view .challenge-header .countdown { padding: 5px 12px; }
+.app-view .challenge-header .countdown-time { font-size: 20px; }
+
+.app-view .challenge-body { gap: 8px; padding: 10px 14px 12px; }
+.app-view .challenge-intro { font-size: 13.5px; }
+
+.app-view .trivia-count,
+.app-view .trivia-timer { font-size: 14px; padding: 4px 12px; }
+.app-view .trivia-question-text { font-size: 16px; margin: 2px 0 4px; }
+.app-view .trivia-option { font-size: 14px; min-height: 52px; padding: 7px; }
+.app-view .option-icon { font-size: 16px; }
+
+.app-view .mission-box { padding: 10px 12px; }
+.app-view .mission-target { font-size: 17px; margin: 3px 0; }
+.app-view .mission-detail { font-size: 13.5px; }
+.app-view .riddle-text { font-size: 15px; padding: 12px; }
+.app-view .oracle-quote { font-size: 17px; }
+
+.app-view .steps-value { font-size: 40px; }
+.app-view .steps-label { font-size: 12px; letter-spacing: 2px; }
+.app-view .steps-counter { padding: 10px; }
 .app-view .steps-challenge .hint-live { display: none; }
-.app-view .challenge-body .mini-board li { padding: 6px 4px; }
+
+.app-view .terr-stat { padding: 9px 8px; }
+.app-view .terr-stat-value { font-size: 24px; }
+
+.app-view .challenge-body .mini-board li { font-size: 14px; padding: 6px 4px; }
 
 .app-view .challenge-body > .drawguess-challenge {
   display: flex;
