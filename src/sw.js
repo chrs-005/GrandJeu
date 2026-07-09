@@ -18,17 +18,28 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  // Forward to any open app windows via BroadcastChannel
-  const bc = new BroadcastChannel(BROADCAST_CHANNEL);
-  bc.postMessage(data);
-  bc.close();
-
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: '/icons/icon.svg',
-      badge: '/icons/icon.svg',
-      data: { url: data.url || '/app' },
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Refresh open app windows silently. If the app is currently visible,
+      // do not also show the OS notification over the top of the game.
+      const bc = new BroadcastChannel(BROADCAST_CHANNEL);
+      bc.postMessage(data);
+      bc.close();
+
+      const hasVisibleApp = clientList.some(
+        (client) =>
+          client.url.includes(self.location.origin) &&
+          (client.focused || client.visibilityState === 'visible')
+      );
+
+      if (hasVisibleApp) return undefined;
+
+      return self.registration.showNotification(data.title, {
+        body: data.body,
+        icon: '/icons/icon.svg',
+        badge: '/icons/icon.svg',
+        data: { url: data.url || '/app' },
+      });
     })
   );
 });

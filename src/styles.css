@@ -28,7 +28,7 @@
   --font-display: 'Cinzel', 'Times New Roman', serif;
   --font-greek: 'Caesar Dressing', 'Cinzel', serif;
   --font-body: 'Crimson Pro', Georgia, serif;
-  --device-safe-top: env(safe-area-inset-top, 0px);
+  --device-safe-top: max(0px, calc(env(safe-area-inset-top, 0px) - 10px));
   --device-safe-bottom: env(safe-area-inset-bottom, 0px);
 
   /* Cut-out paper recipes: crisp outline + hard offset shadow */
