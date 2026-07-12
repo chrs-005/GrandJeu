@@ -5,11 +5,14 @@ import Countdown from './Countdown';
 // No title plaque (the bottom tab already names the challenge) — just a small
 // transparent timer up top and the challenge content filling the parchment
 // below the illustration.
-export default function ChallengeShell({ challenge, now, children, showTimer = true }) {
+export default function ChallengeShell({ challenge, now, children, showTimer = true, seam }) {
   const started = now >= challenge.startAtMs;
 
   return (
-    <section className={`challenge-shell challenge-${challenge.type}`}>
+    <section
+      className={`challenge-shell challenge-${challenge.type}`}
+      style={seam ? { '--seam': `${seam}%` } : undefined}
+    >
       {started && showTimer && (
         <div className="challenge-timer-top">{formatRemaining(challenge.endAtMs - now)}</div>
       )}

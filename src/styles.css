@@ -1820,25 +1820,53 @@ select:focus {
   min-height: 0;
 }
 
-.app-view .challenge-shell .challenge-header {
-  min-height: 45dvh;
+/* THE ART LINE (--seam): each screen declares where its background art ends.
+   The scene spacer is exactly that tall; the content box owns everything
+   below it, stacking from the bottom and never crossing the line upward. */
+.app-view .challenge-shell .challenge-header,
+.app-view .home-scene {
+  flex: 0 0 auto;
+  height: var(--seam, 45%);
+  min-height: 0;
 }
 
 .app-view .challenge-body {
+  display: flex;
   flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 0;
   overflow: hidden;
+}
+
+/* Screens with a big interactive element let it drink the leftover space */
+.app-view .territory-challenge,
+.app-view .guide-challenge {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.app-view .territory-challenge .sat-map {
+  flex: 1 1 auto;
+  height: auto !important; /* wins over the inline height prop */
+  min-height: 110px;
+}
+
+.app-view .compass-hero {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* Bottom page nav */
 .tab-bar {
   align-items: stretch;
   background: var(--ink-band);
-  border-top: 3px solid var(--ink);
+  border-top: 2px solid var(--ink);
   box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-shrink: 0;
-  gap: 8px;
-  padding: 8px 10px calc(8px + var(--device-safe-bottom));
+  gap: 6px;
+  padding: 4px 8px calc(4px + var(--device-safe-bottom));
   position: relative;
   z-index: 5;
 }
@@ -1852,18 +1880,19 @@ select:focus {
   align-items: center;
   background: rgba(236, 217, 168, 0.14);
   border: 2px solid var(--ink);
-  border-radius: 9px;
+  border-radius: 8px;
   color: var(--cream-dim);
   cursor: pointer;
   display: flex;
   flex: 1;
-  flex-direction: column;
+  flex-direction: row;
   font-family: var(--font-display);
   font-size: 12px;
   font-weight: 700;
-  gap: 2px;
+  gap: 7px;
+  justify-content: center;
   letter-spacing: 0.5px;
-  padding: 7px 6px;
+  padding: 5px 6px;
 }
 
 .tab-btn.is-active {
@@ -1873,8 +1902,8 @@ select:focus {
 }
 
 .tab-btn.is-disabled { cursor: not-allowed; opacity: 0.4; }
-.tab-icon { font-size: 20px; line-height: 1; }
-.tab-label { text-transform: uppercase; }
+.tab-icon { font-size: 16px; line-height: 1; }
+.tab-label { text-transform: uppercase; white-space: nowrap; }
 
 /* Floating toasts don't shift the fixed layout */
 .toast-error,
@@ -1893,7 +1922,6 @@ select:focus {
 .home-scene {
   align-items: flex-end;
   display: flex;
-  min-height: 47dvh;
   padding: 14px 16px;
 }
 
@@ -2020,15 +2048,6 @@ select:focus {
   display: none;
 }
 
-/* Content-heavy challenges get a shorter scene so their body fits the fixed
-   frame without scrolling. */
-.app-view .challenge-drawguess .challenge-header,
-.app-view .challenge-photo .challenge-header,
-.app-view .challenge-bounty .challenge-header,
-.app-view .challenge-steps .challenge-header {
-  min-height: 41dvh;
-}
-
 /* Compact immersive content so plaques + cards sit LOW on the artboard
    (revealing the god illustration above) while still fitting the fixed frame. */
 .app-view .challenge-heading { padding: 8px 13px; }
@@ -2143,132 +2162,58 @@ select:focus {
 /* Nudge the Muses artboard up a touch so the dancers sit higher */
 .challenge-shell.challenge-drawguess::before { background-position: center 34%; }
 
-/* Layout Lab overrides */
-/* Content body - Home only */
-.home-screen .challenge-body {
-  position: relative;
-  transform: translate(0px, 48px) scale(1);
-  transform-origin: center center;
-  width: 100%;
-  padding: 14px;
+/* ==========================================================================
+   ART-LINE TUNER (?tune=1) — drag the line, values persist per device,
+   copy the config into src/config/sceneConfig.js to bake them in.
+   ========================================================================== */
+.scene-tuner {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 8;
 }
 
-/* Home team box - Home only */
-.home-screen .home-team-card {
-  position: relative;
-  transform: translate(0px, 67px) scale(1);
-  transform-origin: center center;
-  width: 100%;
-  padding: 12px;
+.tuner-line {
+  border-top: 2px dashed rgba(255, 82, 82, 0.9);
+  left: 0;
+  position: absolute;
+  right: 0;
 }
 
-/* Content body - Oracle / Trivia only */
-.challenge-trivia .challenge-body {
-  position: relative;
-  transform: translate(0px, -19px) scale(1);
-  transform-origin: center center;
-  width: 100%;
-  padding: 14px;
+.tuner-handle {
+  background: rgba(180, 30, 30, 0.92);
+  border: 1px solid #fff;
+  border-radius: 999px;
+  color: #fff;
+  cursor: grab;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  left: 50%;
+  padding: 4px 14px;
+  pointer-events: auto;
+  position: absolute;
+  top: -15px;
+  touch-action: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
-/* Content body - Heracles / Photo only */
-.challenge-photo .challenge-body {
-  position: relative;
-  transform: translate(0px, -16px) scale(1);
-  transform-origin: center center;
-  width: 100%;
-  min-height: 49dvh;
-  padding: 14px;
+.tuner-actions {
+  bottom: 8px;
+  display: flex;
+  gap: 6px;
+  position: absolute;
+  right: 8px;
 }
 
-/* Content body - Hermes / Steps only */
-.challenge-steps .challenge-body {
-  position: relative;
-  transform: translate(0px, 42px) scale(1);
-  transform-origin: center center;
-  width: 100%;
-  min-height: 1dvh;
-  padding: 14px;
-}
-
-/* Mission box - Hermes / Steps only */
-.challenge-steps .mission-box {
-  position: relative;
-  transform: translate(0px, 0px) scale(1);
-  transform-origin: center center;
-  width: 100%;
-  padding: 12px;
-}
-
-/* Content body - Muses / Drawing only */
-.challenge-drawguess .challenge-body {
-  position: relative;
-  transform: translate(0px, -20px) scale(1);
-  transform-origin: center center;
-  width: 100%;
-  min-height: 52dvh;
-  padding: 14px;
-}
-
-/* Draw prompt - Muses / Drawing only */
-.challenge-drawguess .draw-prompt {
-  position: relative;
-  transform: translate(0px, 6px) scale(0.83);
-  transform-origin: center center;
-  width: 100%;
-  padding: 14px;
-}
-
-/* Content body - Ariadne / Guide only */
-.challenge-guide .challenge-body {
-  position: relative;
-  transform: translate(42px, 19px) scale(1);
-  transform-origin: center center;
-  width: 81%;
-  min-height: 38dvh;
-  padding: 14px;
-}
-
-/* Compass / guide box - Ariadne / Guide only */
-.challenge-guide .compass-hero {
-  position: relative;
-  transform: translate(0px, 0px) scale(1);
-  transform-origin: center center;
-  width: 100%;
-}
-
-/* Content body - Ares / Territory only */
-.challenge-territory .challenge-body {
-  position: relative;
-  transform: translate(0px, -85px) scale(1);
-  transform-origin: center center;
-  width: 100%;
-  min-height: 54dvh;
-  padding: 14px;
-}
-
-/* Territory stats - Ares / Territory only */
-.challenge-territory .terr-stats {
-  position: relative;
-  transform: translate(0px, 14px) scale(0.72);
-  transform-origin: center center;
-  width: 100%;
-}
-
-/* Content body - Medusa / Bounty only */
-.challenge-bounty .challenge-body {
-  position: relative;
-  transform: translate(0px, -13px) scale(1);
-  transform-origin: center center;
-  width: 100%;
-  padding: 14px;
-}
-
-/* Content body - Sphinx / Riddle only */
-.challenge-riddle .challenge-body {
-  position: relative;
-  transform: translate(25px, 117px) scale(1);
-  transform-origin: center center;
-  width: 89%;
-  padding: 14px;
+.tuner-btn {
+  background: rgba(36, 22, 8, 0.85);
+  border: 1px solid rgba(242, 224, 184, 0.5);
+  border-radius: 8px;
+  color: var(--cream);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 10px;
+  pointer-events: auto;
 }

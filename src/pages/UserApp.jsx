@@ -14,7 +14,9 @@ import {
   getExistingSubscription,
 } from '../services/notifications';
 import { teamInfo, challengeMeta } from '../config/gameConfig';
+import { SCENE_LINES, loadLineOverrides } from '../config/sceneConfig';
 import ChallengeShell from '../components/ChallengeShell';
+import SceneTuner from '../components/SceneTuner';
 import StepsChallenge from '../components/challenges/StepsChallenge';
 import TriviaChallenge from '../components/challenges/TriviaChallenge';
 import PhotoChallenge from '../components/challenges/PhotoChallenge';
@@ -44,9 +46,9 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
 // Home tab: team card + Mount Olympus leaderboard floating on the temple
 // artboard (design's "HOME — MOUNT OLYMPUS"). One fixed screen, no scroll.
-function HomeScreen({ info, teams, meUid, isAdmin, onAdmin, onLogout }) {
+function HomeScreen({ info, teams, meUid, isAdmin, onAdmin, onLogout, seam }) {
   return (
-    <section className="challenge-shell home-screen">
+    <section className="challenge-shell home-screen" style={seam ? { '--seam': `${seam}%` } : undefined}>
       <div className="home-scene">
         <div className="home-team-card">
           <span className="app-emblem">{info.emblem}</span>
@@ -216,6 +218,9 @@ export default function UserApp() {
   // Onboarding + persistent GPS state (survives reloads via localStorage).
   const [gpsOn, setGpsOn] = useState(() => localStorage.getItem('olympe-gps') === '1');
   const [ritualsDone, setRitualsDone] = useState(() => localStorage.getItem('olympe-rituals') === '1');
+  // Art-line tuning mode (?tune=1) + per-device overrides.
+  const [tuning] = useState(() => new URLSearchParams(window.location.search).has('tune'));
+  const [tunedLines, setTunedLines] = useState(loadLineOverrides);
 
   // One persistent GPS watch for the whole session (feeds the admin map).
   useLocationBroadcast(currentUser, gpsOn);
@@ -276,13 +281,17 @@ export default function UserApp() {
 
   const onChallengeTab = tab === 'challenge' && challenge && ChallengeComponent;
 
+  // "Art line" per screen: content starts below it (tunable with ?tune=1).
+  const screenKey = onChallengeTab ? challenge.type : 'home';
+  const seam = tunedLines[screenKey] ?? SCENE_LINES[screenKey] ?? 45;
+
   return (
     <div className="app-shell" style={{ '--team-color': info.color }}>
       {error && <div className="alert alert-error toast-error">{error}</div>}
 
       <div className="app-view">
         {onChallengeTab ? (
-          <ChallengeShell challenge={challenge} now={now}>
+          <ChallengeShell challenge={challenge} now={now} seam={seam}>
             {challenge.status === 'active' && now < challenge.startAtMs ? (
               <p className="challenge-intro">{meta.playerIntro}</p>
             ) : (
@@ -302,7 +311,15 @@ export default function UserApp() {
             meUid={data?.me?.uid}
             onAdmin={() => navigate('/admin')}
             onLogout={handleLogout}
+            seam={seam}
             teams={data?.teams}
+          />
+        )}
+        {tuning && (
+          <SceneTuner
+            line={seam}
+            onChange={() => setTunedLines(loadLineOverrides())}
+            screen={screenKey}
           />
         )}
       </div>
