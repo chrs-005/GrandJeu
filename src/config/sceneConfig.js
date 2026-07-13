@@ -6,7 +6,7 @@ export const SCENE_LINES = {
   home: 56.8,
   steps: 51.5,
   trivia: 46.3,
-  bounty: 45.9,
+  bounty: 41.2,
   photo: 44.2,
   drawguess: 45.8,
   guide: 53,
