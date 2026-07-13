@@ -2159,8 +2159,87 @@ select:focus {
   font-weight: 700;
 }
 
-/* Nudge the Muses artboard up a touch so the dancers sit higher */
-.challenge-shell.challenge-drawguess::before { background-position: center 34%; }
+/* ==========================================================================
+   FILL THE ZONE — content below the art line stretches to the tab bar:
+   the challenge wrapper becomes a flex column and its "main" element
+   (options grid, canvas, map, riddle, counter…) drinks the leftover space.
+   ========================================================================== */
+.app-view .challenge-body > * {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.app-view .home-actions { flex: 0 0 auto; }
+
+/* Home: the leaderboard card fills, rows breathe evenly */
+.app-view .leader-card {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.app-view .leader-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: space-evenly;
+  min-height: 0;
+}
+
+/* Trivia: the answer grid absorbs the leftover height */
+.app-view .trivia-options {
+  flex: 1 1 auto;
+  grid-auto-rows: 1fr;
+  min-height: 0;
+}
+
+.app-view .trivia-lobby,
+.app-view .trivia-reveal,
+.app-view .trivia-final {
+  justify-content: center;
+}
+
+/* Riddle: the Sphinx's question fills, centered */
+.app-view .riddle-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+
+/* Photo / bounty: the capture block fills and centers */
+.app-view .photo-capture {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-height: 0;
+}
+
+.app-view .photo-preview {
+  min-height: 0;
+  object-fit: contain;
+}
+
+/* Steps: the big counter fills and centers */
+.app-view .steps-counter {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+
+/* Draw & guess (guess phase): the drawing to identify fills */
+.app-view .drawguess-challenge .guess-drawing {
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: 0;
+  object-fit: contain;
+}
 
 /* ==========================================================================
    ART-LINE TUNER (?tune=1) — drag the line, values persist per device,

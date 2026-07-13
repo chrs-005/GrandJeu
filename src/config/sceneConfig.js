@@ -3,15 +3,15 @@
 // line upward; it stacks from the bottom and takes whatever room it needs.
 // Tune visually on any device with ?tune=1, then bake the values here.
 export const SCENE_LINES = {
-  home: 53,
-  steps: 46,
-  trivia: 42,
-  bounty: 39,
-  photo: 39,
-  drawguess: 38,
-  guide: 47,
-  territory: 34,
-  riddle: 59,
+  home: 56.8,
+  steps: 51.5,
+  trivia: 46.3,
+  bounty: 45.9,
+  photo: 44.2,
+  drawguess: 45.8,
+  guide: 53,
+  territory: 41,
+  riddle: 62.8,
 };
 
 const STORAGE_KEY = 'olympe-scene-lines';
