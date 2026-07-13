@@ -2220,8 +2220,28 @@ select:focus {
 }
 
 .app-view .photo-preview {
+  flex: 1 1 auto;
+  max-height: none;
   min-height: 0;
   object-fit: contain;
+  width: 100%;
+}
+
+.app-view .photo-capture .btn-group {
+  align-items: center;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.app-view .photo-capture .btn-group .btn {
+  border-radius: 6px;
+  flex: 0 1 auto;
+  font-size: 12px;
+  letter-spacing: 0.8px;
+  padding: 8px 10px;
+  width: auto;
 }
 
 /* Steps: the big counter fills and centers */
@@ -2239,6 +2259,45 @@ select:focus {
   max-height: none;
   min-height: 0;
   object-fit: contain;
+}
+
+.app-view .drawguess-challenge .drawing-toolbar {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.app-view .drawguess-challenge .drawing-colors {
+  flex: 0 1 auto;
+  gap: 4px;
+  min-width: 0;
+}
+
+.app-view .drawguess-challenge .color-swatch {
+  flex: 0 0 auto;
+  height: 22px;
+  width: 22px;
+}
+
+.app-view .drawguess-challenge .drawing-size {
+  flex: 0 0 auto;
+  font-size: 11px;
+  gap: 4px;
+}
+
+.app-view .drawguess-challenge .drawing-size input {
+  width: 58px;
+}
+
+.app-view .drawguess-challenge .drawing-actions {
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.app-view .drawguess-challenge .drawing-actions .btn {
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
+  padding: 6px 7px;
 }
 
 /* ==========================================================================
