@@ -1980,7 +1980,7 @@ select:focus {
   font-size: 15px;
   font-weight: 900;
   letter-spacing: 2px;
-  padding-bottom: 6px;
+  padding-bottom: 2px;
   text-align: center;
   text-transform: uppercase;
 }
@@ -2174,7 +2174,7 @@ select:focus {
 
 .app-view .home-actions { flex: 0 0 auto; }
 
-/* Home: the leaderboard card fills, rows breathe evenly */
+/* Home: keep the first leaderboard row close to the title */
 .app-view .leader-card {
   display: flex;
   flex: 1 1 auto;
@@ -2184,9 +2184,9 @@ select:focus {
 
 .app-view .leader-list {
   display: flex;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   flex-direction: column;
-  justify-content: space-evenly;
+  justify-content: flex-start;
   min-height: 0;
 }
 

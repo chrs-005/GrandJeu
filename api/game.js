@@ -215,7 +215,12 @@ async function handleGet(req, res) {
   const { db, decoded, user } = verified;
 
   const { scores, challenge } = await loadGameState(db);
+  const usersSnap = await db.collection('users').get();
+  const adminUids = new Set(
+    usersSnap.docs.filter((doc) => doc.data().role === 'admin').map((doc) => doc.id)
+  );
   const teams = Object.entries(scores)
+    .filter(([uid]) => !adminUids.has(uid))
     .map(([uid, entry]) => ({ uid, username: entry.username, score: entry.score || 0 }))
     .sort((a, b) => b.score - a.score || a.username.localeCompare(b.username));
 
