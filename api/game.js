@@ -157,6 +157,7 @@ async function buildChallengeView(db, challenge, uid) {
         targetLat: config.lat,
         targetLng: config.lng,
         radiusM: config.radiusM,
+        nfcRequired: Boolean(config.nfcRequired),
         arrived: own?.arrivedAtMs
           ? { atMs: own.arrivedAtMs, rank: own.rank, points: own.points || 0 }
           : null,
@@ -448,8 +449,10 @@ async function handlePost(req, res) {
 
     // -- guide (compass hunt) -----------------------------------------------------
     case 'arrive': {
-      const { latitude, longitude, accuracy } = body;
-      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+      // `viaNfc` = the team physically tapped the NFC tag at the destination,
+      // which is proof enough on its own (no GPS distance check needed).
+      const { latitude, longitude, accuracy, viaNfc } = body;
+      if (!viaNfc && (typeof latitude !== 'number' || typeof longitude !== 'number')) {
         return sendError(res, 400, 'Position invalide.');
       }
       const ref = db.collection('challenges').doc(String(body.challengeId || ''));
@@ -465,16 +468,18 @@ async function handlePost(req, res) {
           return { alreadyArrived: true, rank: previous.rank, points: previous.points || 0 };
         }
         const cfg = challenge.config;
-        const distance = haversineMeters(latitude, longitude, cfg.lat, cfg.lng);
-        const tolerance = Math.min(Math.max(Number(accuracy) || 0, 10), 30);
-        if (distance > cfg.radiusM + tolerance) {
-          return { tooFar: true, distance: Math.round(distance) };
+        if (!viaNfc) {
+          const distance = haversineMeters(latitude, longitude, cfg.lat, cfg.lng);
+          const tolerance = Math.min(Math.max(Number(accuracy) || 0, 10), 30);
+          if (distance > cfg.radiusM + tolerance) {
+            return { tooFar: true, distance: Math.round(distance) };
+          }
         }
         const rank = Object.values(challenge.board || {}).filter((e) => e.arrivedAtMs).length + 1;
         const rankPoints = cfg.rankPoints || [];
         const points = rankPoints[rank - 1] || 0;
         tx.update(ref, {
-          [`board.${uid}`]: { username, arrivedAtMs: now, rank, points },
+          [`board.${uid}`]: { username, arrivedAtMs: now, rank, points, viaNfc: Boolean(viaNfc) },
         });
         return { arrived: true, rank, points };
       });

@@ -162,6 +162,7 @@ function buildChallenge(type, cfg, teamUids) {
           lat,
           lng,
           radiusM: num(cfg.radiusM, 30, 10, 500),
+          nfcRequired: Boolean(cfg.nfcRequired),
           rankPoints: Array.isArray(cfg.rankPoints) && cfg.rankPoints.length
             ? cfg.rankPoints.map((p) => num(p, 0, 0, 1000))
             : DEFAULT_RANK_POINTS,

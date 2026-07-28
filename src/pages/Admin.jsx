@@ -105,6 +105,7 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
   const [guideCoords, setGuideCoords] = useState('');
   const [guideRadius, setGuideRadius] = useState(30);
   const [guideMinutes, setGuideMinutes] = useState(30);
+  const [guideNfc, setGuideNfc] = useState(false);
 
   // Pin can come from a map tap or pasted "lat, lng" coordinates — keep both in sync.
   function pickGuidePin(latlng) {
@@ -169,6 +170,7 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
           lat: guidePin?.lat,
           lng: guidePin?.lng,
           radiusM: Number(guideRadius),
+          nfcRequired: guideNfc,
           durationSeconds: Number(guideMinutes) * 60,
         });
       case 'territory':
@@ -342,6 +344,16 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
             Durée (minutes)
             <input min="1" max="240" onChange={(e) => setGuideMinutes(e.target.value)} type="number" value={guideMinutes} />
           </label>
+          <label className="toggle-images">
+            <input checked={guideNfc} onChange={(e) => setGuideNfc(e.target.checked)} type="checkbox" />
+            Valider l’arrivée par tag NFC (au lieu du GPS)
+          </label>
+          {guideNfc && (
+            <p className="form-hint">
+              📲 Programme le tag avec cette adresse :<br />
+              <code>{window.location.origin}/app?found=guide</code>
+            </p>
+          )}
           <p className="form-hint">Points à l’arrivée : {RANK_POINTS.join(' / ')} (ordre d’arrivée).</p>
         </div>
       )}

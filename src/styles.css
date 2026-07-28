@@ -2355,3 +2355,53 @@ select:focus {
   padding: 6px 10px;
   pointer-events: auto;
 }
+
+/* ==========================================================================
+   NFC "found" celebration overlay + compass hint
+   ========================================================================== */
+.compass-nfc-hint {
+  animation: pulse 1.2s ease-in-out infinite;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 6px;
+  text-align: center;
+}
+
+.found-overlay {
+  align-items: center;
+  animation: found-fade 0.2s ease;
+  background: rgba(23, 16, 10, 0.82);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 50;
+}
+
+.found-card {
+  background: var(--clay-panel);
+  border-radius: 12px;
+  box-shadow: var(--cut-line), 0 18px 50px rgba(0, 0, 0, 0.6);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 340px;
+  padding: 28px 24px;
+  text-align: center;
+  transform: rotate(-0.6deg);
+  width: 100%;
+}
+
+.found-icon { font-size: 56px; line-height: 1; }
+.found-title { font-size: 22px; margin: 0; }
+.found-sub { color: var(--ink-muted); font-style: italic; margin: 0; }
+.found-card .points-chip { align-self: center; }
+
+@keyframes found-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

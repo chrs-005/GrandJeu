@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useGame } from '../hooks/useGame';
 import { useNow } from '../hooks/useNow';
 import { useLocationBroadcast } from '../hooks/useLocationBroadcast';
+import { gameAction } from '../services/api';
 import {
   isNotificationSupported,
   getNotificationPermission,
@@ -215,6 +216,9 @@ export default function UserApp() {
   const now = useNow(serverNow);
   const [tab, setTab] = useState('home');
   const prevChallengeRef = useRef(null);
+  // NFC "found" celebration ({ ok, rank, points, already, none, error }).
+  const [found, setFound] = useState(null);
+  const foundHandledRef = useRef(false);
   // Onboarding + persistent GPS state (survives reloads via localStorage).
   const [gpsOn, setGpsOn] = useState(() => localStorage.getItem('olympe-gps') === '1');
   const [ritualsDone, setRitualsDone] = useState(() => localStorage.getItem('olympe-rituals') === '1');
@@ -265,6 +269,37 @@ export default function UserApp() {
     prevChallengeRef.current = challengeId;
   }, [challengeId]);
 
+  // NFC tag tapped (?found=…): once signed in and the game state is loaded,
+  // register the Fil d'Ariane arrival and show the celebration.
+  useEffect(() => {
+    if (foundHandledRef.current || !currentUser || !data) return;
+    const token = localStorage.getItem('olympe-pending-found');
+    if (!token) return;
+    foundHandledRef.current = true;
+    localStorage.removeItem('olympe-pending-found');
+
+    const ch = data.challenge;
+    if (!ch || ch.type !== 'guide' || !ch.running) {
+      setFound({ ok: false, none: true });
+      return;
+    }
+    setTab('challenge');
+    if (ch.arrived) {
+      setFound({ ok: true, already: true, rank: ch.arrived.rank, points: ch.arrived.points });
+      return;
+    }
+    gameAction(currentUser, 'arrive', { challengeId: ch.id, viaNfc: true })
+      .then((r) => {
+        setFound(
+          r.arrived || r.alreadyArrived
+            ? { ok: true, rank: r.rank, points: r.points, already: r.alreadyArrived }
+            : { ok: false, error: true }
+        );
+        refresh();
+      })
+      .catch(() => setFound({ ok: false, error: true }));
+  }, [currentUser, data, refresh]);
+
   // Gate: request permissions once, up front, before the game (design's
   // "Sacred Rituals" screen). Skipped forever once completed.
   if (!ritualsDone) {
@@ -285,8 +320,44 @@ export default function UserApp() {
   const screenKey = onChallengeTab ? challenge.type : 'home';
   const seam = tunedLines[screenKey] ?? SCENE_LINES[screenKey] ?? 45;
 
+  const rankOrdinal = found?.rank === 1 ? 'ʳᵉ' : 'ᵉ';
+
   return (
     <div className="app-shell" style={{ '--team-color': info.color }}>
+      {found && (
+        <div className="found-overlay" onClick={() => setFound(null)}>
+          <div className="found-card" onClick={(e) => e.stopPropagation()}>
+            {found.ok ? (
+              <>
+                <span className="found-icon">🧵</span>
+                <h2 className="found-title">Tu as trouvé le Fil d’Ariane !</h2>
+                <p className="found-sub">
+                  {found.already
+                    ? 'Arrivée déjà validée'
+                    : `${found.rank}${rankOrdinal} équipe arrivée`}
+                </p>
+                {found.points > 0 && <span className="points-chip">+{found.points} pts</span>}
+              </>
+            ) : found.none ? (
+              <>
+                <span className="found-icon">🧭</span>
+                <h2 className="found-title">Aucune chasse en cours</h2>
+                <p className="found-sub">Le Fil d’Ariane n’est pas actif pour l’instant.</p>
+              </>
+            ) : (
+              <>
+                <span className="found-icon">⚠️</span>
+                <h2 className="found-title">Validation impossible</h2>
+                <p className="found-sub">Réessaie en touchant le tag à nouveau.</p>
+              </>
+            )}
+            <button className="btn btn-primary" onClick={() => setFound(null)} type="button">
+              Continuer
+            </button>
+          </div>
+        </div>
+      )}
+
       {error && <div className="alert alert-error toast-error">{error}</div>}
 
       <div className="app-view">
