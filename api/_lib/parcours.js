@@ -76,13 +76,20 @@ export function buildParcoursView(parcours, uid) {
   };
 }
 
-// Admin dashboard view: where every team stands.
+// Admin dashboard view: where every team stands, plus the path each is
+// currently following so it can be drawn on the console map.
 export function buildParcoursAdminView(parcours) {
   if (!parcours) return null;
   const teams = Object.entries(parcours.sequences || {}).map(([uid, sequence]) => {
     const progress = parcours.progress?.[uid] || { index: 0, found: [] };
     const index = progress.index ?? 0;
     const target = destinationById(parcours, sequence[index]);
+    let route = [];
+    try {
+      route = progress.route ? JSON.parse(progress.route) : [];
+    } catch {
+      route = [];
+    }
     return {
       uid,
       index,
@@ -90,6 +97,7 @@ export function buildParcoursAdminView(parcours) {
       done: index >= sequence.length,
       currentName: target?.name || null,
       routeStraight: Boolean(progress.routeStraight),
+      route,
       found: (progress.found || []).map((f) => ({ name: f.name, atMs: f.atMs, points: f.points })),
     };
   });

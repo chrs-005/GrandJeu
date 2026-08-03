@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { gameAction } from '../services/api';
 import { followRoute, cardinalFr, formatDistance, warmthFor } from '../utils/geo';
 
-const OFF_ROUTE_M = 70; // beyond this we ask the server for a fresh route
-const RECOMPUTE_COOLDOWN_MS = 60_000;
+// Rerouting is deliberately reluctant: wandering off is the team's problem,
+// but once they're genuinely lost we retie the thread like a maps app would.
+const WAY_OFF_M = 150; // must be REALLY off the path
+const WAY_OFF_SUSTAIN_MS = 10_000; // …and stay off for this long (not a GPS blip)
+const RECOMPUTE_COOLDOWN_MS = 90_000;
 const ARRIVAL_M = 30; // "you're there, hunt for the tag"
 
 function needsCompassPermission() {
@@ -20,7 +23,9 @@ export default function ParcoursScreen({ user, parcours, refresh }) {
   const [error, setError] = useState('');
   const [targetIdx, setTargetIdx] = useState(0);
   const [routing, setRouting] = useState(false);
+  const [rerouted, setRerouted] = useState(false);
   const lastRouteReqRef = useRef(0);
+  const wayOffSinceRef = useRef(0);
 
   // The poll hands back a fresh array each time; key it so identity is stable.
   const routeKey = parcours.route?.length
@@ -105,13 +110,34 @@ export default function ParcoursScreen({ user, parcours, refresh }) {
     if (nav && nav.targetIdx !== targetIdx) setTargetIdx(nav.targetIdx);
   }, [nav, targetIdx]);
 
-  // No route yet, or we've wandered far off it → ask the server for one.
+  // No route yet → fetch one. Already have one → only retie the thread if
+  // they're WAY off it and have stayed off for a while (a single bad fix or a
+  // short detour must not trigger a reroute).
   useEffect(() => {
     if (!pos || routing || parcours.done) return;
-    const stale = nav && nav.offRoute > OFF_ROUTE_M;
+
     if (!route.length) {
       requestRoute(pos);
-    } else if (stale && Date.now() - lastRouteReqRef.current > RECOMPUTE_COOLDOWN_MS) {
+      return;
+    }
+    if (!nav) return;
+
+    if (nav.offRoute <= WAY_OFF_M) {
+      wayOffSinceRef.current = 0;
+      return;
+    }
+    const now = Date.now();
+    if (!wayOffSinceRef.current) {
+      wayOffSinceRef.current = now;
+      return;
+    }
+    if (
+      now - wayOffSinceRef.current >= WAY_OFF_SUSTAIN_MS &&
+      now - lastRouteReqRef.current > RECOMPUTE_COOLDOWN_MS
+    ) {
+      wayOffSinceRef.current = 0;
+      setRerouted(true);
+      setTimeout(() => setRerouted(false), 6000);
       requestRoute(pos);
     }
   }, [pos, route.length, nav, routing, parcours.done, requestRoute]);
@@ -202,8 +228,13 @@ export default function ParcoursScreen({ user, parcours, refresh }) {
       {compassOn && heading == null && nav && (
         <p className="hint-live">Boussole en éveil… le chemin part vers le {cardinalFr(nav.bearing)}.</p>
       )}
-      {nav && nav.offRoute > OFF_ROUTE_M && !routing && (
-        <p className="hint-live">Tu t’es éloigné du chemin — Ariane le recalcule…</p>
+      {rerouted || routing ? (
+        <p className="hint-live">🧵 Ariane retisse son fil depuis ta position…</p>
+      ) : (
+        nav &&
+        nav.offRoute > WAY_OFF_M && (
+          <p className="hint-live">Tu es loin du chemin — reviens vers la flèche.</p>
+        )
       )}
       {parcours.destination?.hint && arrived && (
         <p className="hint-live">💡 {parcours.destination.hint}</p>

@@ -811,6 +811,8 @@ export default function Admin() {
   const [withImages, setWithImages] = useState(true);
   const [notifTitle, setNotifTitle] = useState('');
   const [notifBody, setNotifBody] = useState('');
+  // Per-team route visibility on the console map (unchecked = hidden).
+  const [hiddenRoutes, setHiddenRoutes] = useState({});
   const offsetRef = useRef(0);
   const withImagesRef = useRef(withImages);
   withImagesRef.current = withImages;
@@ -874,6 +876,33 @@ export default function Admin() {
 
   const challenge = data?.challenge;
   const showChallenge = challenge && data?.currentChallengeId === challenge.id;
+
+  // Each team's current Fil d'Ariane path, for the console map.
+  const routeByUid = useMemo(() => {
+    const out = {};
+    (data?.parcours?.teams || []).forEach((team) => {
+      if (team.route?.length) out[team.uid] = team.route;
+    });
+    return out;
+  }, [data?.parcours]);
+
+  const nameByUid = useMemo(
+    () => Object.fromEntries((data?.teams || []).map((t) => [t.uid, t.username])),
+    [data?.teams]
+  );
+
+  const mapVectors = useMemo(() => {
+    const lines = Object.entries(routeByUid)
+      .filter(([uid]) => hiddenRoutes[uid] !== true)
+      .map(([uid, points]) => ({
+        id: `route-${uid}`,
+        points: lngLatToLatLng(points),
+        color: teamInfo(nameByUid[uid]).neon,
+        weight: 4,
+        casing: true,
+      }));
+    return lines.length ? { lines } : null;
+  }, [routeByUid, hiddenRoutes, nameByUid]);
 
   return (
     <div className="app-page admin-page">
@@ -988,14 +1017,47 @@ export default function Admin() {
         {/* Map */}
         <section className="admin-section">
           <h3 className="section-title">Carte des équipes</h3>
-          <SatMap fit="markers" height={340} markers={teamMarkers(data?.locations || [])} zoom={16} />
+          <SatMap
+            fit="markers"
+            height={340}
+            markers={teamMarkers(data?.locations || [])}
+            vectors={mapVectors}
+            zoom={16}
+          />
           <div className="location-list">
-            {(data?.locations || []).map((location) => (
-              <div className="location-list-row" key={location.uid}>
-                <strong>{teamInfo(location.username).emblem} {location.username}</strong>
-                <span>il y a {formatAge(location.updatedAt)}</span>
-              </div>
-            ))}
+            {(data?.locations || []).map((location) => {
+              const info = teamInfo(location.username);
+              const teamRoute = routeByUid[location.uid];
+              const shown = hiddenRoutes[location.uid] !== true;
+              return (
+                <div className="location-list-row" key={location.uid}>
+                  <label className="route-toggle">
+                    <input
+                      checked={Boolean(teamRoute?.length) && shown}
+                      disabled={!teamRoute?.length}
+                      onChange={() =>
+                        setHiddenRoutes((prev) => ({ ...prev, [location.uid]: shown }))
+                      }
+                      type="checkbox"
+                    />
+                    <span className="route-swatch" style={{ background: info.neon }} />
+                    <strong>{info.emblem} {location.username}</strong>
+                  </label>
+                  <span className="location-age">il y a {formatAge(location.updatedAt)}</span>
+                  <a
+                    className="btn btn-sm btn-secondary"
+                    href={`https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}`}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    📍 Maps
+                  </a>
+                </div>
+              );
+            })}
+            {!data?.locations?.length && (
+              <p className="form-hint">Aucune position partagée pour l’instant.</p>
+            )}
           </div>
         </section>
 

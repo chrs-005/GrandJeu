@@ -2491,3 +2491,28 @@ select:focus {
   overflow-wrap: anywhere;
 }
 .dest-token code { background: rgba(36, 22, 8, 0.08); padding: 1px 5px; }
+
+/* Admin map: per-team route toggles + open-in-Maps */
+.location-list-row { align-items: center; gap: 10px; }
+
+.route-toggle {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+
+.route-toggle input { flex: 0 0 auto; width: auto; }
+
+.route-swatch {
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  flex: 0 0 auto;
+  height: 12px;
+  width: 18px;
+}
+
+.location-age { color: var(--ink-muted); font-size: 13px; white-space: nowrap; }
+.location-list-row .btn { flex: 0 0 auto; text-decoration: none; }
