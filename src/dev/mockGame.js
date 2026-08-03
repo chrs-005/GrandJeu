@@ -25,7 +25,42 @@ export function buildMockGame(type) {
     me: { uid: 'u-faucon', username: 'faucon', role: 'user', score: 320 },
     teams: TEAM_FIXTURES,
     challenge: null,
+    parcours: null,
   };
+
+  // ?mock=parcours → an L-shaped walking route to exercise the breadcrumb compass.
+  if (type === 'parcours' || type === 'parcours-done') {
+    const LAT = 33.8938;
+    const LNG = 35.5018;
+    const mLat = 111320;
+    const mLng = 111320 * Math.cos((LAT * Math.PI) / 180);
+    const crumbs = [];
+    for (let d = 0; d <= 200; d += 20) crumbs.push([LNG + d / mLng, LAT]);
+    for (let d = 20; d <= 160; d += 20) crumbs.push([LNG + 200 / mLng, LAT + d / mLat]);
+    base.parcours = {
+      active: true,
+      index: type === 'parcours-done' ? 4 : 1,
+      total: 4,
+      done: type === 'parcours-done',
+      destination:
+        type === 'parcours-done'
+          ? null
+          : { name: 'La Fontaine des Muses', hint: 'Derrière la statue', points: 100 },
+      route: type === 'parcours-done' ? [] : crumbs,
+      routeStraight: false,
+      found: [
+        { name: 'Le Vieux Chêne', atMs: now - 900_000, points: 100, rank: 2 },
+        ...(type === 'parcours-done'
+          ? [
+              { name: 'La Fontaine des Muses', atMs: now - 600_000, points: 100, rank: 1 },
+              { name: 'Le Pont de Pierre', atMs: now - 300_000, points: 100, rank: 3 },
+              { name: 'La Tour', atMs: now - 60_000, points: 100, rank: 1 },
+            ]
+          : []),
+      ],
+    };
+    return base;
+  }
 
   const common = { id: 'mock', status: 'active', running: true, startAtMs: now - 10_000 };
 

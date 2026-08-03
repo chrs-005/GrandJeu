@@ -10,6 +10,7 @@ export const SCENE_LINES = {
   photo: 44.2,
   drawguess: 45.8,
   guide: 53,
+  parcours: 53,
   territory: 41,
   riddle: 62.8,
 };

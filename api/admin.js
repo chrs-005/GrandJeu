@@ -11,6 +11,7 @@ import {
   withErrorHandling,
 } from './_lib/core.js';
 import { territoryAreas, SEED_RADIUS_M } from './_lib/territory.js';
+import { makeToken, buildSequences, buildParcoursAdminView } from './_lib/parcours.js';
 
 const DEFAULT_RANK_POINTS = [100, 70, 50, 35, 20];
 
@@ -217,7 +218,7 @@ async function handleGet(req, res, verified) {
   const includeImages = req.query?.images === '1';
 
   const teams = await ensureScoresDoc(db);
-  const { current, challenge } = await loadGameState(db);
+  const { current, challenge, parcours } = await loadGameState(db);
 
   const usersSnap = await db.collection('users').get();
   const locations = usersSnap.docs
@@ -248,6 +249,7 @@ async function handleGet(req, res, verified) {
     challenge,
     media,
     scoreLog,
+    parcours: buildParcoursAdminView(parcours),
   });
 }
 
@@ -408,6 +410,85 @@ async function handlePost(req, res, verified) {
         teams: zeroed,
         updatedAt: FieldValue.serverTimestamp(),
       });
+      invalidateStateCache();
+      return res.status(200).json({ ok: true });
+    }
+
+    // -- Le Fil d'Ariane (parcours) --------------------------------------------
+    // Saving keeps the token of any destination that already has one, so tags
+    // already written and stuck in the field stay valid.
+    case 'parcours-setup': {
+      const teamsMap = await ensureScoresDoc(db);
+      const teamUids = Object.keys(teamsMap);
+      const ref = db.collection('gameState').doc('parcours');
+      const existing = (await ref.get()).data() || {};
+      const previous = new Map((existing.destinations || []).map((d) => [d.id, d]));
+
+      const destinations = (body.destinations || [])
+        .map((d, i) => {
+          const name = String(d.name || '').trim().slice(0, 80);
+          const lat = Number(d.lat);
+          const lng = Number(d.lng);
+          if (!name || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+          const id = String(d.id || '') || `d${Date.now().toString(36)}${i}`;
+          return {
+            id,
+            name,
+            lat,
+            lng,
+            hint: String(d.hint || '').trim().slice(0, 200) || null,
+            points: num(d.points, 100, 0, 1000),
+            token: previous.get(id)?.token || makeToken(),
+          };
+        })
+        .filter(Boolean);
+
+      if (!destinations.length) return sendError(res, 400, 'Ajoutez au moins une destination.');
+
+      const sequences = buildSequences(destinations.map((d) => d.id), teamUids);
+      const progress = {};
+      teamUids.forEach((uid) => {
+        progress[uid] = { index: 0, found: [], route: '', routeStraight: false };
+      });
+
+      await ref.set({
+        active: body.active !== false,
+        destinations,
+        sequences,
+        progress,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      invalidateStateCache();
+
+      if (body.active !== false) {
+        await sendPush(db, {
+          title: '🧵 Le Fil d’Ariane',
+          body: 'Ariane a tendu son fil… Ouvrez l’app et suivez la flèche !',
+          url: '/app',
+        });
+      }
+      return res.status(200).json({ ok: true, destinations });
+    }
+
+    case 'parcours-toggle': {
+      await db.collection('gameState').doc('parcours').set(
+        { active: Boolean(body.active), updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+      invalidateStateCache();
+      return res.status(200).json({ ok: true });
+    }
+
+    // Wipe progress but keep destinations and their (already printed) tokens.
+    case 'parcours-reset': {
+      const ref = db.collection('gameState').doc('parcours');
+      const snap = await ref.get();
+      if (!snap.exists) return sendError(res, 404, 'Aucun parcours.');
+      const progress = {};
+      Object.keys(snap.data().sequences || {}).forEach((uid) => {
+        progress[uid] = { index: 0, found: [], route: '', routeStraight: false };
+      });
+      await ref.set({ progress, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
       invalidateStateCache();
       return res.status(200).json({ ok: true });
     }

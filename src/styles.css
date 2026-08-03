@@ -2405,3 +2405,89 @@ select:focus {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* ==========================================================================
+   LE FIL D'ARIANE — persistent route-following hunt (its own tab)
+   ========================================================================== */
+.parcours-shell { --artboard: url('./assets/bg-ariadne.jpg'); --accent: #6f7fc9; }
+
+.app-view .parcours-screen {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.parcours-head {
+  align-items: center;
+  background: var(--ink);
+  border-radius: 8px;
+  box-shadow: var(--cut-shadow-sm), var(--cut-inset);
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 7px 14px;
+}
+
+.parcours-step {
+  color: var(--cream-dim);
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.parcours-name {
+  color: var(--cream);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.found-done {
+  background: var(--clay-panel);
+  border-radius: 10px;
+  box-shadow: var(--cut-line), var(--cut-shadow);
+  color: var(--ink);
+  padding: 20px 16px;
+  text-align: center;
+}
+
+/* Active tab grows so the challenge name still fits with three tabs */
+.tab-btn { min-width: 0; overflow: hidden; }
+.tab-btn.is-active { flex: 1.7; }
+.tab-btn .tab-label { overflow: hidden; text-overflow: ellipsis; }
+.tab-btn:not(.is-active) .tab-label { font-size: 11px; }
+
+/* Admin: Fil d'Ariane destination editor */
+.parcours-admin { display: flex; flex-direction: column; gap: 10px; }
+
+.dest-row {
+  background: var(--cream);
+  border-radius: 8px;
+  box-shadow: var(--cut-line);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.dest-head { align-items: center; display: flex; gap: 8px; }
+.dest-head strong { color: var(--ink-muted); flex: 0 0 auto; }
+.dest-head input { flex: 1; }
+.dest-fields { display: grid; gap: 6px; grid-template-columns: 1fr 1fr 70px; }
+
+.dest-token {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.dest-token code { background: rgba(36, 22, 8, 0.08); padding: 1px 5px; }

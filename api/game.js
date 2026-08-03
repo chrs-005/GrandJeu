@@ -10,6 +10,13 @@ import {
   withErrorHandling,
 } from './_lib/core.js';
 import { haversineMeters, applyTerritoryMove, territoryAreas, parseGeom } from './_lib/territory.js';
+import { fetchWalkingRoute } from './_lib/routing.js';
+import {
+  buildParcoursView,
+  findDestinationByToken,
+  currentDestId,
+  destinationById,
+} from './_lib/parcours.js';
 
 // Drawings/photos are immutable once submitted, so cache media reads (guess phase).
 const mediaCache = new Map(); // `${challengeId}:${uid}` -> { data, ts }
@@ -215,7 +222,7 @@ async function handleGet(req, res) {
   if (verified.error) return sendError(res, verified.error.status, verified.error.message);
   const { db, decoded, user } = verified;
 
-  const { scores, challenge } = await loadGameState(db);
+  const { scores, challenge, parcours } = await loadGameState(db);
   const usersSnap = await db.collection('users').get();
   const adminUids = new Set(
     usersSnap.docs.filter((doc) => doc.data().role === 'admin').map((doc) => doc.id)
@@ -238,6 +245,7 @@ async function handleGet(req, res) {
     },
     teams,
     challenge: challengeView,
+    parcours: buildParcoursView(parcours, decoded.uid),
   });
 }
 
@@ -517,6 +525,128 @@ async function handlePost(req, res) {
       // No cache invalidation: the 2.5s state cache keeps polling cheap and the
       // grid is never more than a couple seconds stale on other phones.
       return res.status(200).json({ ok: true, ...result });
+    }
+
+    // -- parcours (Le Fil d'Ariane) -------------------------------------------------
+    // NFC tag tapped at a destination: validate it's THIS team's current stop,
+    // award it, then compute the walking route to their next one.
+    case 'parcours-found': {
+      const ref = db.collection('gameState').doc('parcours');
+      const outcome = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return { inactive: true };
+        const parcours = snap.data();
+        if (!parcours.active) return { inactive: true };
+
+        const dest = findDestinationByToken(parcours, body.token);
+        if (!dest) return { unknown: true };
+
+        const sequence = parcours.sequences?.[uid] || [];
+        const progress = parcours.progress?.[uid] || { index: 0, found: [] };
+        const index = progress.index ?? 0;
+        if (index >= sequence.length) return { done: true };
+
+        if (sequence[index] !== dest.id) {
+          const already = (progress.found || []).some((f) => f.destId === dest.id);
+          return already
+            ? { alreadyFound: true, name: dest.name }
+            : { wrongTag: true, name: dest.name };
+        }
+
+        // Rank = how many teams reached this destination before us.
+        const rank =
+          Object.values(parcours.progress || {}).filter((p) =>
+            (p.found || []).some((f) => f.destId === dest.id)
+          ).length + 1;
+        const points = dest.points || 0;
+        const nextIndex = index + 1;
+        const nextDestId = sequence[nextIndex] || null;
+
+        tx.update(ref, {
+          [`progress.${uid}.index`]: nextIndex,
+          [`progress.${uid}.found`]: [
+            ...(progress.found || []),
+            { destId: dest.id, name: dest.name, atMs: now, points, rank },
+          ],
+          [`progress.${uid}.route`]: '',
+          [`progress.${uid}.routeStraight`]: false,
+        });
+
+        return {
+          found: true,
+          name: dest.name,
+          points,
+          rank,
+          from: { lat: dest.lat, lng: dest.lng },
+          nextDestId,
+          nextName: nextDestId ? destinationById(parcours, nextDestId)?.name || null : null,
+          finished: !nextDestId,
+        };
+      });
+
+      if (!outcome.found) {
+        invalidateStateCache();
+        return res.status(200).json({ ok: true, ...outcome });
+      }
+
+      invalidateStateCache();
+      if (outcome.points > 0) {
+        await addPoints(db, uid, username, outcome.points, `Fil d’Ariane — ${outcome.name}`);
+      }
+
+      // They're standing on the tag, so the next leg starts exactly here.
+      if (outcome.nextDestId) {
+        const fresh = (await ref.get()).data();
+        const next = destinationById(fresh, outcome.nextDestId);
+        if (next) {
+          const route = await fetchWalkingRoute(outcome.from, { lat: next.lat, lng: next.lng });
+          await ref.update({
+            [`progress.${uid}.route`]: JSON.stringify(route.points),
+            [`progress.${uid}.routeStraight`]: route.straight,
+            [`progress.${uid}.routeAtMs`]: Date.now(),
+          });
+          invalidateStateCache();
+        }
+      }
+
+      return res.status(200).json({
+        ok: true,
+        found: true,
+        name: outcome.name,
+        points: outcome.points,
+        rank: outcome.rank,
+        nextName: outcome.nextName,
+        finished: outcome.finished,
+      });
+    }
+
+    // Compute (or recompute) the walking route from where the team is now.
+    case 'parcours-route': {
+      const { latitude, longitude } = body;
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+        return sendError(res, 400, 'Position invalide.');
+      }
+      const ref = db.collection('gameState').doc('parcours');
+      const snap = await ref.get();
+      if (!snap.exists) return res.status(200).json({ ok: true, inactive: true });
+      const parcours = snap.data();
+      if (!parcours.active) return res.status(200).json({ ok: true, inactive: true });
+
+      const destId = currentDestId(parcours, uid);
+      const dest = destId ? destinationById(parcours, destId) : null;
+      if (!dest) return res.status(200).json({ ok: true, done: true });
+
+      const route = await fetchWalkingRoute(
+        { lat: latitude, lng: longitude },
+        { lat: dest.lat, lng: dest.lng }
+      );
+      await ref.update({
+        [`progress.${uid}.route`]: JSON.stringify(route.points),
+        [`progress.${uid}.routeStraight`]: route.straight,
+        [`progress.${uid}.routeAtMs`]: Date.now(),
+      });
+      invalidateStateCache();
+      return res.status(200).json({ ok: true, points: route.points.length, straight: route.straight });
     }
 
     // -- riddle -------------------------------------------------------------------

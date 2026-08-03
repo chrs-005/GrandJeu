@@ -624,6 +624,179 @@ function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
 }
 
 // ---------------------------------------------------------------------------
+// Le Fil d'Ariane — destinations, NFC tokens, live team progress
+// ---------------------------------------------------------------------------
+function ParcoursAdmin({ parcours, locations, teams, busy, onAction }) {
+  const nameByUid = useMemo(
+    () => Object.fromEntries((teams || []).map((t) => [t.uid, t.username])),
+    [teams]
+  );
+  const [draft, setDraft] = useState(() => parcours?.destinations || []);
+  const [dirty, setDirty] = useState(false);
+  const origin = window.location.origin;
+
+  // Adopt server state until the admin starts editing (avoids clobbering typing).
+  useEffect(() => {
+    if (!dirty) setDraft(parcours?.destinations || []);
+  }, [parcours, dirty]);
+
+  const mapCenter = useMemo(() => locationsCenter(locations), [locations]);
+
+  function update(index, patch) {
+    setDirty(true);
+    setDraft((list) => list.map((d, i) => (i === index ? { ...d, ...patch } : d)));
+  }
+
+  function addDestination(latlng) {
+    setDirty(true);
+    setDraft((list) => [
+      ...list,
+      {
+        name: `Lieu ${list.length + 1}`,
+        lat: Number(latlng.lat.toFixed(6)),
+        lng: Number(latlng.lng.toFixed(6)),
+        points: 100,
+        hint: '',
+      },
+    ]);
+  }
+
+  function remove(index) {
+    setDirty(true);
+    setDraft((list) => list.filter((_, i) => i !== index));
+  }
+
+  async function save(active = true) {
+    await onAction('parcours-setup', { destinations: draft, active }, 'Parcours enregistré !');
+    setDirty(false);
+  }
+
+  const pins = draft
+    .filter((d) => Number.isFinite(Number(d.lat)) && Number.isFinite(Number(d.lng)))
+    .map((d, i) => ({
+      id: `dest-${i}`,
+      lat: Number(d.lat),
+      lng: Number(d.lng),
+      emblem: String(i + 1),
+      color: '#e2a83d',
+      label: d.name,
+    }));
+
+  return (
+    <div className="parcours-admin">
+      <p className="form-hint">
+        🧵 Touchez la carte pour ajouter un lieu. Chaque équipe visite tous les lieux, mais dans un
+        ordre décalé. Le tag NFC d’un lieu débloque le chemin vers le suivant.
+      </p>
+
+      <SatMap
+        center={mapCenter}
+        fit="markers"
+        height={280}
+        markers={[...teamMarkers(locations), ...pins]}
+        onPick={addDestination}
+        zoom={15}
+      />
+
+      {draft.map((dest, index) => (
+        <div className="dest-row" key={dest.id || `new-${index}`}>
+          <div className="dest-head">
+            <strong>#{index + 1}</strong>
+            <input
+              onChange={(e) => update(index, { name: e.target.value })}
+              placeholder="Nom du lieu"
+              type="text"
+              value={dest.name || ''}
+            />
+            <button className="btn btn-sm btn-danger" onClick={() => remove(index)} type="button">
+              ✕
+            </button>
+          </div>
+          <div className="dest-fields">
+            <input
+              onChange={(e) => update(index, { lat: e.target.value })}
+              placeholder="lat"
+              type="text"
+              value={dest.lat ?? ''}
+            />
+            <input
+              onChange={(e) => update(index, { lng: e.target.value })}
+              placeholder="lng"
+              type="text"
+              value={dest.lng ?? ''}
+            />
+            <input
+              onChange={(e) => update(index, { points: e.target.value })}
+              placeholder="pts"
+              type="number"
+              value={dest.points ?? 100}
+            />
+          </div>
+          <input
+            onChange={(e) => update(index, { hint: e.target.value })}
+            placeholder="Indice affiché à l’arrivée (optionnel) — ex : sous le banc bleu"
+            type="text"
+            value={dest.hint || ''}
+          />
+          {dest.token && (
+            <p className="dest-token">
+              🏷️ Tag NFC : <code>{`${origin}/app?found=${dest.token}`}</code>
+            </p>
+          )}
+        </div>
+      ))}
+
+      <div className="btn-group">
+        <button className="btn btn-primary" disabled={busy || !draft.length} onClick={() => save(true)} type="button">
+          💾 Enregistrer & activer
+        </button>
+        {parcours?.active ? (
+          <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onAction('parcours-toggle', { active: false }, 'Parcours en pause.')} type="button">
+            ⏸ Mettre en pause
+          </button>
+        ) : (
+          <button className="btn btn-secondary btn-sm" disabled={busy || !parcours?.destinations?.length} onClick={() => onAction('parcours-toggle', { active: true }, 'Parcours actif !')} type="button">
+            ▶️ Activer
+          </button>
+        )}
+        <button
+          className="btn btn-danger btn-sm"
+          disabled={busy}
+          onClick={() => {
+            if (window.confirm('Remettre toutes les équipes au premier lieu ? (les tags restent valides)')) {
+              onAction('parcours-reset', {}, 'Progression remise à zéro.');
+            }
+          }}
+          type="button"
+        >
+          ♻️ Réinitialiser
+        </button>
+      </div>
+
+      {dirty && <p className="form-hint">⚠️ Modifications non enregistrées.</p>}
+
+      {parcours?.teams?.length > 0 && (
+        <ol className="mini-board">
+          {parcours.teams.map((team) => {
+            const info = teamInfo(nameByUid[team.uid] || team.uid);
+            return (
+              <li key={team.uid}>
+                <span>
+                  {info.emblem} {info.title}
+                </span>
+                <strong>
+                  {team.done ? '🏁 terminé' : `${team.index}/${team.total} — ${team.currentName || '…'}`}
+                </strong>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main admin page
 // ---------------------------------------------------------------------------
 export default function Admin() {
@@ -739,11 +912,26 @@ export default function Admin() {
           )}
         </section>
 
+        {/* Le Fil d'Ariane */}
+        <section className="admin-section">
+          <h3 className="section-title">
+            🧵 Le Fil d’Ariane {data?.parcours?.active ? '(actif)' : '(inactif)'}
+          </h3>
+          <ParcoursAdmin
+            busy={busy}
+            locations={data?.locations || []}
+            onAction={runAction}
+            parcours={data?.parcours}
+            teams={data?.teams}
+          />
+        </section>
+
         {/* Launch */}
         <section className="admin-section">
           <h3 className="section-title">Lancer un défi</h3>
           <div className="type-tabs">
-            {Object.entries(CHALLENGE_META).map(([type, meta]) => (
+            {/* 'guide' is retired — the Fil d'Ariane is now the parcours above. */}
+            {Object.entries(CHALLENGE_META).filter(([type]) => type !== 'guide').map(([type, meta]) => (
               <button
                 className={`type-tab ${launchType === type ? 'is-active' : ''}`}
                 key={type}

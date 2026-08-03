@@ -74,6 +74,68 @@ export function multiPolygonAreaM2(mp) {
   return Math.max(0, total);
 }
 
+/**
+ * Route following for Le Fil d'Ariane. Given the walker's position, the
+ * breadcrumb trail ([[lng,lat], …]) and the breadcrumb we were heading to,
+ * work out which one to aim at now and how far is left along the path.
+ * Advances (and skips ahead within `lookahead`) so cutting a corner or a GPS
+ * jump never leaves the arrow pointing backwards at a passed breadcrumb.
+ */
+export function followRoute(pos, route, fromIdx = 0, { advanceM = 14, lookahead = 6 } = {}) {
+  if (!pos || !route?.length) return null;
+
+  let targetIdx = Math.min(Math.max(fromIdx, 0), route.length - 1);
+  const limit = Math.min(route.length - 1, targetIdx + lookahead);
+  for (let i = targetIdx; i <= limit; i++) {
+    if (haversineMeters(pos.lat, pos.lng, route[i][1], route[i][0]) <= advanceM) {
+      targetIdx = Math.min(i + 1, route.length - 1);
+    }
+  }
+
+  let target = route[targetIdx];
+  let toTarget = haversineMeters(pos.lat, pos.lng, target[1], target[0]);
+
+  // GPS dropped out while they kept walking: the target is far behind them.
+  // Snap forward to the nearest breadcrumb ahead (never backwards) so the
+  // arrow doesn't send them back the way they came.
+  if (toTarget > 40) {
+    let nearest = targetIdx;
+    let nearestDist = toTarget;
+    for (let i = targetIdx + 1; i < route.length; i++) {
+      const d = haversineMeters(pos.lat, pos.lng, route[i][1], route[i][0]);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearest = i;
+      }
+    }
+    if (nearest > targetIdx && nearestDist < toTarget - 10) {
+      targetIdx = Math.min(nearest + (nearestDist <= advanceM ? 1 : 0), route.length - 1);
+      target = route[targetIdx];
+      toTarget = haversineMeters(pos.lat, pos.lng, target[1], target[0]);
+    }
+  }
+
+  let remaining = toTarget;
+  for (let i = targetIdx; i < route.length - 1; i++) {
+    remaining += haversineMeters(route[i][1], route[i][0], route[i + 1][1], route[i + 1][0]);
+  }
+
+  let offRoute = Infinity;
+  for (let i = 0; i < route.length; i++) {
+    const d = haversineMeters(pos.lat, pos.lng, route[i][1], route[i][0]);
+    if (d < offRoute) offRoute = d;
+  }
+
+  return {
+    targetIdx,
+    bearing: bearingDeg(pos.lat, pos.lng, target[1], target[0]),
+    toTarget,
+    remaining,
+    offRoute,
+    atEnd: targetIdx >= route.length - 1,
+  };
+}
+
 export function formatArea(m2) {
   if (m2 >= 20000) {
     return `${(m2 / 10000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ha`;
