@@ -55,7 +55,7 @@ async function getAccessToken() {
   return tokenCache.token;
 }
 
-async function sheetsFetch(path, options = {}) {
+export async function sheetsFetch(path, options = {}) {
   const token = await getAccessToken();
   const res = await fetch(`${API}/${path}`, {
     ...options,
@@ -89,8 +89,22 @@ function normalizeHeader(value) {
     .replace(/[^a-z0-9]/g, '');
 }
 
+// Stable id from the title, so inserting/sorting rows in the sheet never
+// re-points existing submissions at the wrong challenge (row numbers would).
+function challengeIdFromTitle(title) {
+  const normalized = String(title).trim().toLowerCase().normalize('NFKC');
+  let hash = 5381;
+  for (let i = 0; i < normalized.length; i++) {
+    hash = ((hash << 5) + hash + normalized.charCodeAt(i)) >>> 0;
+  }
+  return `s${hash.toString(36)}`;
+}
+
 const FIELD_ALIASES = {
-  title: ['titre', 'title', 'defi', 'challenge', 'nom', 'name', 'mission'],
+  title: [
+    'titre', 'titres', 'title', 'titles', 'defi', 'defis', 'challenge', 'challenges',
+    'nom', 'name', 'mission', 'missions', 'epreuve', 'epreuves', 'travaux',
+  ],
   description: ['description', 'desc', 'details', 'detail', 'consigne', 'explication', 'regles'],
   points: ['points', 'point', 'pts', 'score', 'valeur'],
   media: ['media', 'type', 'preuve', 'format', 'photovideo'],
@@ -149,7 +163,7 @@ export async function fetchSheetChallenges() {
       if (cols.active !== undefined && isFalsy(cell('active'))) return null;
       const points = parseInt(cell('points'), 10);
       return {
-        id: `sheet-${i + 2}`, // spreadsheet row number, stable while rows aren't reordered
+        id: challengeIdFromTitle(title),
         source: 'sheet',
         row: i + 2,
         title,
