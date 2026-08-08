@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// Paste into Firebase console → Storage → Rules → Publish.
+// Teams upload their own challenge submissions; everyone signed in can view
+// them (the admin console shows the gallery). 60 MB ceiling covers a short
+// phone video; anything larger is rejected before it costs storage.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /submissions/{uid}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.auth.uid == uid
+                   && request.resource.size < 60 * 1024 * 1024
+                   && (request.resource.contentType.matches('image/.*')
+                       || request.resource.contentType.matches('video/.*'));
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

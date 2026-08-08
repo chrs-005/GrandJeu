@@ -19,6 +19,7 @@ import { SCENE_LINES, loadLineOverrides } from '../config/sceneConfig';
 import ChallengeShell from '../components/ChallengeShell';
 import SceneTuner from '../components/SceneTuner';
 import ParcoursScreen from '../components/ParcoursScreen';
+import DefisScreen from '../components/DefisScreen';
 import StepsChallenge from '../components/challenges/StepsChallenge';
 import TriviaChallenge from '../components/challenges/TriviaChallenge';
 import PhotoChallenge from '../components/challenges/PhotoChallenge';
@@ -266,7 +267,9 @@ export default function UserApp() {
   // clears. The challenge lives in its own tab, never over the home page.
   useEffect(() => {
     if (challengeId && challengeId !== prevChallengeRef.current) setTab('challenge');
-    else if (!challengeId) setTab('home');
+    // Only bounce home if the challenge they were watching just ended — never
+    // yank them out of the Défis list.
+    else if (!challengeId) setTab((current) => (current === 'challenge' ? 'home' : current));
     prevChallengeRef.current = challengeId;
   }, [challengeId]);
 
@@ -305,6 +308,7 @@ export default function UserApp() {
   const parcours = data?.parcours;
   const onChallengeTab = tab === 'challenge' && challenge && ChallengeComponent;
   const onFilTab = tab === 'fil' && parcours?.active;
+  const onDefisTab = tab === 'defis';
 
   // "Art line" per screen: content starts below it (tunable with ?tune=1).
   const screenKey = onChallengeTab ? challenge.type : onFilTab ? 'parcours' : 'home';
@@ -396,6 +400,8 @@ export default function UserApp() {
               />
             )}
           </ChallengeShell>
+        ) : onDefisTab ? (
+          <DefisScreen now={now} user={currentUser} />
         ) : onFilTab ? (
           <section className="challenge-shell parcours-shell" style={{ '--seam': `${seam}%` }}>
             <div className="challenge-header challenge-scene" />
@@ -431,6 +437,14 @@ export default function UserApp() {
         >
           <span className="tab-icon">🏛️</span>
           <span className="tab-label">Accueil</span>
+        </button>
+        <button
+          className={`tab-btn ${tab === 'defis' ? 'is-active' : ''}`}
+          onClick={() => setTab('defis')}
+          type="button"
+        >
+          <span className="tab-icon">📜</span>
+          <span className="tab-label">Défis</span>
         </button>
         <button
           className={`tab-btn ${tab === 'fil' ? 'is-active' : ''} ${parcours?.active ? '' : 'is-disabled'}`}

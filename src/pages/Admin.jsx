@@ -8,6 +8,7 @@ import { TRIVIA_PACKS } from '../data/triviaPacks';
 import { DRAWING_PROMPTS, PHOTO_MISSIONS, RIDDLE_PRESETS } from '../data/presets';
 import { mpToLatLngPolygons, lngLatToLatLng, multiPolygonAreaM2, formatArea } from '../utils/geo';
 import SatMap from '../components/SatMap';
+import DefisAdmin from '../components/DefisAdmin';
 
 const QUICK_POINTS = [100, 70, 50, 30];
 const RANKED_TYPES = ['steps', 'territory'];
@@ -941,6 +942,12 @@ export default function Admin() {
           )}
         </section>
 
+        {/* Les Défis */}
+        <section className="admin-section">
+          <h3 className="section-title">📜 Les Défis</h3>
+          <DefisAdmin busy={busy} now={now} onAction={runAction} user={currentUser} />
+        </section>
+
         {/* Le Fil d'Ariane */}
         <section className="admin-section">
           <h3 className="section-title">
@@ -959,17 +966,19 @@ export default function Admin() {
         <section className="admin-section">
           <h3 className="section-title">Lancer un défi</h3>
           <div className="type-tabs">
-            {/* 'guide' is retired — the Fil d'Ariane is now the parcours above. */}
-            {Object.entries(CHALLENGE_META).filter(([type]) => type !== 'guide').map(([type, meta]) => (
-              <button
-                className={`type-tab ${launchType === type ? 'is-active' : ''}`}
-                key={type}
-                onClick={() => setLaunchType(type)}
-                type="button"
-              >
-                {meta.icon} {meta.title.replace(/^(La |Le |Les |L’)/, '')}
-              </button>
-            ))}
+            {/* 'guide' → the parcours above; 'photo' (Héraclès) → Les Défis page. */}
+            {Object.entries(CHALLENGE_META)
+              .filter(([type]) => type !== 'guide' && type !== 'photo')
+              .map(([type, meta]) => (
+                <button
+                  className={`type-tab ${launchType === type ? 'is-active' : ''}`}
+                  key={type}
+                  onClick={() => setLaunchType(type)}
+                  type="button"
+                >
+                  {meta.icon} {meta.title.replace(/^(La |Le |Les |L’)/, '')}
+                </button>
+              ))}
           </div>
           <p className="form-hint">{challengeMeta(launchType).tagline}</p>
           <LaunchForm busy={busy} locations={data?.locations || []} onLaunch={launchChallenge} type={launchType} />

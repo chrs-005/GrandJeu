@@ -38,9 +38,18 @@ export function gameAction(user, action, payload = {}) {
   });
 }
 
+// -- défis (always-on challenge list) -----------------------------------------
+export function fetchDefis(user) {
+  return request(user, '/api/game?view=defis');
+}
+
 // -- admin -------------------------------------------------------------------
 export function fetchAdmin(user, { images = false } = {}) {
   return request(user, `/api/admin${images ? '?images=1' : ''}`);
+}
+
+export function fetchAdminDefis(user) {
+  return request(user, '/api/admin?view=defis');
 }
 
 export function adminAction(user, action, payload = {}) {

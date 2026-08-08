@@ -12,6 +12,14 @@ import {
 } from './_lib/core.js';
 import { territoryAreas, SEED_RADIUS_M } from './_lib/territory.js';
 import { makeToken, buildSequences, buildParcoursAdminView } from './_lib/parcours.js';
+import {
+  loadSheetChallenges,
+  loadDefisState,
+  mergeChallenges,
+  loadAllSubmissions,
+  invalidateSheetCache,
+} from './_lib/defis.js';
+import { appendSheetChallenge, sheetConfigured } from './_lib/sheets.js';
 
 const DEFAULT_RANK_POINTS = [100, 70, 50, 35, 20];
 
@@ -217,6 +225,24 @@ async function handleGet(req, res, verified) {
   const { db } = verified;
   const includeImages = req.query?.images === '1';
 
+  // Défis board is fetched on its own (sheet + every team's submissions).
+  if (req.query?.view === 'defis') {
+    const [{ challenges, error: sheetError }, state, submissions] = await Promise.all([
+      loadSheetChallenges(),
+      loadDefisState(db),
+      loadAllSubmissions(db),
+    ]);
+    return res.status(200).json({
+      ok: true,
+      serverNow: Date.now(),
+      sheetConfigured: sheetConfigured(),
+      sheetError,
+      defis: mergeChallenges(challenges, state),
+      hidden: state.hidden || [],
+      submissions,
+    });
+  }
+
   const teams = await ensureScoresDoc(db);
   const { current, challenge, parcours } = await loadGameState(db);
 
@@ -411,6 +437,131 @@ async function handlePost(req, res, verified) {
         updatedAt: FieldValue.serverTimestamp(),
       });
       invalidateStateCache();
+      return res.status(200).json({ ok: true });
+    }
+
+    // -- Les Défis --------------------------------------------------------------
+    // Validate/refuse a submission. Points land on the scoreboard immediately.
+    case 'defi-review': {
+      const { uid, challengeId, status } = body;
+      const ref = db.collection('defiSubmissions').doc(String(uid || ''));
+      const snap = await ref.get();
+      if (!snap.exists) return sendError(res, 404, 'Aucune soumission.');
+      const entry = snap.data().items?.[challengeId];
+      if (!entry) return sendError(res, 404, 'Soumission introuvable.');
+
+      const awarded = num(body.points, 0, 0, 2000);
+      const already = entry.points || 0;
+      await ref.set(
+        {
+          items: {
+            [challengeId]: {
+              ...entry,
+              status: status || (awarded > 0 ? 'valid' : 'rejected'),
+              points: awarded,
+              reviewedAtMs: Date.now(),
+            },
+          },
+        },
+        { merge: true }
+      );
+      if (awarded - already !== 0) {
+        await addPoints(
+          db,
+          uid,
+          snap.data().username || uid,
+          awarded - already,
+          `Défi — ${entry.title || challengeId}`
+        );
+      }
+      return res.status(200).json({ ok: true });
+    }
+
+    // Create a challenge from the console; it's written back into the sheet so
+    // the spreadsheet stays the source of truth (falls back to local storage).
+    case 'defi-create': {
+      const title = String(body.title || '').trim().slice(0, 120);
+      if (!title) return sendError(res, 400, 'Titre requis.');
+      const challenge = {
+        title,
+        description: String(body.description || '').trim().slice(0, 500),
+        points: num(body.points, 50, 0, 2000),
+        media: ['photo', 'video', 'any'].includes(body.media) ? body.media : 'any',
+        category: String(body.category || '').trim().slice(0, 60),
+      };
+
+      if (sheetConfigured()) {
+        try {
+          await appendSheetChallenge(challenge);
+          invalidateSheetCache();
+          return res.status(200).json({ ok: true, target: 'sheet' });
+        } catch (err) {
+          // Sheet unreachable → keep the challenge locally rather than lose it.
+          const local = { ...challenge, id: `admin-${Date.now().toString(36)}`, source: 'admin' };
+          await db.collection('gameState').doc('defis').set(
+            { extra: FieldValue.arrayUnion(local), updatedAt: FieldValue.serverTimestamp() },
+            { merge: true }
+          );
+          return res.status(200).json({ ok: true, target: 'local', sheetError: err.message });
+        }
+      }
+
+      const local = { ...challenge, id: `admin-${Date.now().toString(36)}`, source: 'admin' };
+      await db.collection('gameState').doc('defis').set(
+        { extra: FieldValue.arrayUnion(local), updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+      return res.status(200).json({ ok: true, target: 'local' });
+    }
+
+    // Make a challenge "hot": timed, pinned on top, worth bonus points.
+    case 'defi-hot': {
+      const challengeId = String(body.challengeId || '');
+      if (!challengeId) return sendError(res, 400, 'Défi manquant.');
+      const ref = db.collection('gameState').doc('defis');
+
+      if (body.stop) {
+        await ref.set({ [`hot.${challengeId}`]: FieldValue.delete() }, { merge: true });
+        invalidateSheetCache();
+        return res.status(200).json({ ok: true, stopped: true });
+      }
+
+      const minutes = num(body.minutes, 15, 1, 240);
+      const startAtMs = Date.now();
+      const endAtMs = startAtMs + minutes * 60_000;
+      await ref.set(
+        {
+          hot: {
+            [challengeId]: { startAtMs, endAtMs, bonusPoints: num(body.bonusPoints, 50, 0, 1000) },
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      const push = await sendPush(db, {
+        title: '🔥 Défi brûlant !',
+        body: `${String(body.title || 'Un défi')} — ${minutes} min pour le relever !`,
+        url: '/app',
+      });
+      return res.status(200).json({ ok: true, endAtMs, push });
+    }
+
+    case 'defi-hide': {
+      const challengeId = String(body.challengeId || '');
+      if (!challengeId) return sendError(res, 400, 'Défi manquant.');
+      await db.collection('gameState').doc('defis').set(
+        {
+          hidden: body.hidden ? FieldValue.arrayUnion(challengeId) : FieldValue.arrayRemove(challengeId),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      return res.status(200).json({ ok: true });
+    }
+
+    case 'defi-refresh-sheet': {
+      invalidateSheetCache();
       return res.status(200).json({ ok: true });
     }
 

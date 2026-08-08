@@ -12,6 +12,13 @@ import {
 import { haversineMeters, applyTerritoryMove, territoryAreas, parseGeom } from './_lib/territory.js';
 import { fetchWalkingRoute } from './_lib/routing.js';
 import {
+  loadSheetChallenges,
+  loadDefisState,
+  mergeChallenges,
+  loadTeamSubmissions,
+  buildDefisView,
+} from './_lib/defis.js';
+import {
   buildParcoursView,
   findDestinationByToken,
   currentDestId,
@@ -221,6 +228,22 @@ async function handleGet(req, res) {
   const verified = await verifyUser(req);
   if (verified.error) return sendError(res, verified.error.status, verified.error.message);
   const { db, decoded, user } = verified;
+
+  // The challenge list is fetched on demand (heavier than the game poll), so
+  // it lives behind ?view=defis rather than riding along every few seconds.
+  if (req.query?.view === 'defis') {
+    const [{ challenges, error: sheetError }, state, items] = await Promise.all([
+      loadSheetChallenges(),
+      loadDefisState(db),
+      loadTeamSubmissions(db, decoded.uid),
+    ]);
+    return res.status(200).json({
+      ok: true,
+      serverNow: Date.now(),
+      sheetError,
+      defis: buildDefisView(mergeChallenges(challenges, state), items),
+    });
+  }
 
   const { scores, challenge, parcours } = await loadGameState(db);
   const usersSnap = await db.collection('users').get();
@@ -525,6 +548,51 @@ async function handlePost(req, res) {
       // No cache invalidation: the 2.5s state cache keeps polling cheap and the
       // grid is never more than a couple seconds stale on other phones.
       return res.status(200).json({ ok: true, ...result });
+    }
+
+    // -- défis (always-on challenge list) -------------------------------------------
+    // The media is already in Firebase Storage (uploaded straight from the
+    // phone); we only record the reference and reset the review status.
+    case 'defi-submit': {
+      const challengeId = String(body.challengeId || '').slice(0, 120);
+      const mediaUrl = String(body.mediaUrl || '');
+      const mediaType = body.mediaType === 'video' ? 'video' : 'photo';
+      const storagePath = String(body.storagePath || '').slice(0, 300);
+      if (!challengeId || !mediaUrl.startsWith('https://')) {
+        return sendError(res, 400, 'Soumission invalide.');
+      }
+
+      const [{ challenges }, state] = await Promise.all([loadSheetChallenges(), loadDefisState(db)]);
+      const challenge = mergeChallenges(challenges, state).find((c) => c.id === challengeId);
+      if (!challenge) return sendError(res, 404, 'Défi introuvable.');
+      if (challenge.hot && now >= challenge.hotEndAtMs) {
+        return sendError(res, 400, 'Ce défi brûlant est terminé.');
+      }
+
+      const ref = db.collection('defiSubmissions').doc(uid);
+      await ref.set(
+        {
+          uid,
+          username,
+          items: {
+            [challengeId]: {
+              challengeId,
+              title: challenge.title,
+              mediaUrl,
+              mediaType,
+              storagePath,
+              atMs: now,
+              status: 'pending',
+              points: 0,
+              wasHot: Boolean(challenge.hot),
+              bonusPoints: challenge.bonusPoints || 0,
+            },
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      return res.status(200).json({ ok: true });
     }
 
     // -- parcours (Le Fil d'Ariane) -------------------------------------------------
