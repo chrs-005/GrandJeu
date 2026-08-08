@@ -3,6 +3,7 @@ import {
   FieldValue,
   verifyUser,
   loadGameState,
+  getAdminUids,
   addPoints,
   normalizeAnswer,
   invalidateStateCache,
@@ -245,11 +246,10 @@ async function handleGet(req, res) {
     });
   }
 
-  const { scores, challenge, parcours } = await loadGameState(db);
-  const usersSnap = await db.collection('users').get();
-  const adminUids = new Set(
-    usersSnap.docs.filter((doc) => doc.data().role === 'admin').map((doc) => doc.id)
-  );
+  const [{ scores, challenge, parcours }, adminUids] = await Promise.all([
+    loadGameState(db),
+    getAdminUids(db),
+  ]);
   const teams = Object.entries(scores)
     .filter(([uid]) => !adminUids.has(uid))
     .map(([uid, entry]) => ({ uid, username: entry.username, score: entry.score || 0 }))

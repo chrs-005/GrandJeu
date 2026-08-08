@@ -6,7 +6,9 @@
 
 import { fetchSheetChallenges, sheetConfigured } from './sheets.js';
 
-const SHEET_CACHE_TTL = 45_000; // sheet edits show up within ~45s
+// Short enough that a row typed into the spreadsheet reaches the phones in
+// seconds; the Sheets API is only hit ~6x/min per instance at this rate.
+const SHEET_CACHE_TTL = 8_000;
 let sheetCache = null; // { data, ts }
 
 export function invalidateSheetCache() {

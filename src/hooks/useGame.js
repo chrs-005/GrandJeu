@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchGame } from '../services/api';
 
 const ACTIVE_INTERVAL = 3000;
-const IDLE_INTERVAL = 7000;
+// Idle used to be 7s, which meant a newly launched challenge could take ~10s
+// to appear. The per-poll cost is now tiny (cached server-side), so poll faster.
+const IDLE_INTERVAL = 4000;
 
 // Polls /api/game and keeps a server-clock offset so countdowns are
 // synchronized across phones even if a device clock is off.
@@ -52,9 +54,20 @@ export function useGame(user) {
     }
 
     tick();
+
+    // iOS freezes timers in a backgrounded PWA, so coming back to the app can
+    // otherwise show stale state until the next tick fires. Refresh at once.
+    function onVisible() {
+      if (document.visibilityState !== 'visible' || stoppedRef.current) return;
+      clearTimeout(timerRef.current);
+      tick();
+    }
+    document.addEventListener('visibilitychange', onVisible);
+
     return () => {
       stoppedRef.current = true;
       clearTimeout(timerRef.current);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [load]);
 

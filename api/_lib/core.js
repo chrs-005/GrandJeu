@@ -44,8 +44,24 @@ const USER_CACHE_TTL = 60_000;
 let stateCache = null; // { data: { state, scores, challenge }, ts }
 const STATE_CACHE_TTL = 2_500;
 
+// Which accounts are admins (to keep them off the leaderboard). Roles never
+// change mid-game, so re-reading the whole users collection on every poll was
+// pure waste: 6 docs × every client × every few seconds.
+let adminUidsCache = null; // { set, ts }
+const ADMIN_UIDS_TTL = 300_000;
+
 export function invalidateStateCache() {
   stateCache = null;
+}
+
+export async function getAdminUids(db) {
+  if (adminUidsCache && Date.now() - adminUidsCache.ts < ADMIN_UIDS_TTL) {
+    return adminUidsCache.set;
+  }
+  const snap = await db.collection('users').get();
+  const set = new Set(snap.docs.filter((doc) => doc.data().role === 'admin').map((doc) => doc.id));
+  adminUidsCache = { set, ts: Date.now() };
+  return set;
 }
 
 export async function verifyUser(req) {

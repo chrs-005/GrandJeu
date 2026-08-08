@@ -3,7 +3,7 @@ import { fetchDefis, gameAction } from '../services/api';
 import { uploadSubmission } from '../services/upload';
 import { formatRemaining } from '../hooks/useNow';
 
-const REFRESH_MS = 25_000; // sheet edits reach the phones within ~1 min
+const REFRESH_MS = 6_000; // admin changes and sheet edits land within seconds
 
 const STATUS = {
   pending: { label: '⏳ En attente du jugement', cls: 'is-pending' },
@@ -167,7 +167,13 @@ export default function DefisScreen({ user, now }) {
   useEffect(() => {
     load();
     const id = setInterval(load, REFRESH_MS);
-    return () => clearInterval(id);
+    // Timers freeze while the PWA is backgrounded — refresh on return.
+    const onVisible = () => document.visibilityState === 'visible' && load();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [load]);
 
   // Keep the open sheet in sync with refreshed data (status, hot countdown).
