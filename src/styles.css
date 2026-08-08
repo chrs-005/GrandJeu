@@ -2527,27 +2527,37 @@ select:focus {
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  position: relative;
+}
+
+/* Faint Labours-of-Heracles fresco behind the whole page: the artboard is
+   zoomed past its painted frame and ghosted right down, so it reads as a
+   subtle mural rather than a picture, and the cream cards stay legible. */
+.defis-screen::before {
+  background:
+    linear-gradient(180deg, rgba(23, 16, 10, 0.55), rgba(23, 16, 10, 0.88)),
+    url('./assets/bg-heracles.jpg') center 28% / 190% no-repeat;
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
 }
 
 .defis-hero {
-  background-position: center 38%;
-  background-size: cover;
-  border-bottom: 3px solid var(--ink);
   flex: 0 0 auto;
-  padding: 18px 16px 14px;
-  position: relative;
-}
-
-.defis-hero-shade {
-  background: linear-gradient(180deg, rgba(23, 16, 10, 0.25), rgba(23, 16, 10, 0.82));
-  inset: 0;
-  position: absolute;
-}
-
-.defis-hero-title,
-.defis-hero-count {
+  padding: 14px 16px 10px;
   position: relative;
   z-index: 1;
+}
+
+.defis-hero::after {
+  background: var(--meander-cream) repeat-x left center / auto 14px;
+  content: '';
+  display: block;
+  height: 14px;
+  margin-top: 8px;
+  opacity: 0.45;
 }
 
 .defis-hero-title {
@@ -2569,6 +2579,8 @@ select:focus {
 
 .defis-list {
   -webkit-overflow-scrolling: touch;
+  position: relative;
+  z-index: 1;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;

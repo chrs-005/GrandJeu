@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchDefis, gameAction } from '../services/api';
 import { uploadSubmission } from '../services/upload';
 import { formatRemaining } from '../hooks/useNow';
-import defisBanner from '../assets/bg-heracles.jpg';
 
 const REFRESH_MS = 25_000; // sheet edits reach the phones within ~1 min
 
@@ -178,8 +177,7 @@ export default function DefisScreen({ user, now }) {
 
   return (
     <div className="defis-screen">
-      <header className="defis-hero" style={{ backgroundImage: `url(${defisBanner})` }}>
-        <div className="defis-hero-shade" />
+      <header className="defis-hero">
         <h2 className="defis-hero-title">Les Travaux</h2>
         {defis && (
           <span className="defis-hero-count">
