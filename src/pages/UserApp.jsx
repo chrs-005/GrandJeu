@@ -54,17 +54,26 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 function HomeScreen({
   info, teams, meUid, isAdmin, onAdmin, onLogout, seam, secret, onSecret, tuning, owlDebug,
 }) {
+  // Once the owl has delivered the scroll the artboard stays on the end frame.
+  // The server remembers the discovery, so it survives a reload/reinstall.
+  const [justRevealed, setJustRevealed] = useState(false);
+  const revealed = justRevealed || Boolean(secret?.found);
+
   return (
-    <section className="challenge-shell home-screen" style={seam ? { '--seam': `${seam}%` } : undefined}>
+    <section
+      className={`challenge-shell home-screen ${revealed ? 'is-owl-revealed' : ''}`}
+      style={seam ? { '--seam': `${seam}%` } : undefined}
+    >
       <div className="home-scene">
-        {/* ?tune=1 → drag it into place; ?owl=1 → visible AND tappable for
-            testing. Both show even before a riddle is armed. */}
+        {/* The circle is visible for now so it can be found and tested; drop
+            `owl-visible` from the class list to hide it for the real game. */}
         {(secret?.active || tuning || owlDebug) && (
           <SecretOwl
             armed={Boolean(secret?.active)}
             debug={owlDebug}
             onOpen={onSecret}
-            solved={secret?.solved}
+            onRevealed={() => setJustRevealed(true)}
+            revealed={revealed}
             tuning={tuning}
           />
         )}
