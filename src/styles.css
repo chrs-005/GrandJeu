@@ -30,6 +30,10 @@
   --font-body: 'Crimson Pro', Georgia, serif;
   --device-safe-top: max(0px, calc(env(safe-area-inset-top, 0px) - 10px));
   --device-safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Tune these in DevTools if the owl clip drifts from the still background. */
+  --owl-video-scale: 1;
+  --owl-video-x: 0px;
+  --owl-video-y: 0px;
 
   /* Cut-out paper recipes: crisp outline + hard offset shadow */
   --cut-line: 0 0 0 1px rgba(36, 22, 8, 0.5);
@@ -2921,6 +2925,8 @@ select:focus {
   position: fixed;
   right: 0;
   top: var(--device-safe-top);
+  transform: translate(var(--owl-video-x), var(--owl-video-y)) scale(var(--owl-video-scale));
+  transform-origin: center top;
   width: min(100vw, 460px);
   z-index: -1;
 }
