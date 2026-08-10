@@ -26,6 +26,8 @@ export function buildMockGame(type) {
     teams: TEAM_FIXTURES,
     challenge: null,
     parcours: null,
+    // Hidden owl easter egg is armed in mocks so it can be previewed.
+    secret: { active: true, solved: false, found: false },
   };
 
   // ?mock=parcours → an L-shaped walking route to exercise the breadcrumb compass.

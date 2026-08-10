@@ -20,6 +20,8 @@ import ChallengeShell from '../components/ChallengeShell';
 import SceneTuner from '../components/SceneTuner';
 import ParcoursScreen from '../components/ParcoursScreen';
 import DefisScreen from '../components/DefisScreen';
+import SecretOwl from '../components/SecretOwl';
+import SecretScroll from '../components/SecretScroll';
 import StepsChallenge from '../components/challenges/StepsChallenge';
 import TriviaChallenge from '../components/challenges/TriviaChallenge';
 import PhotoChallenge from '../components/challenges/PhotoChallenge';
@@ -49,10 +51,11 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
 // Home tab: team card + Mount Olympus leaderboard floating on the temple
 // artboard (design's "HOME — MOUNT OLYMPUS"). One fixed screen, no scroll.
-function HomeScreen({ info, teams, meUid, isAdmin, onAdmin, onLogout, seam }) {
+function HomeScreen({ info, teams, meUid, isAdmin, onAdmin, onLogout, seam, secret, onSecret }) {
   return (
     <section className="challenge-shell home-screen" style={seam ? { '--seam': `${seam}%` } : undefined}>
       <div className="home-scene">
+        {secret?.active && <SecretOwl onOpen={onSecret} solved={secret.solved} />}
         <div className="home-team-card">
           <span className="app-emblem">{info.emblem}</span>
           <div className="home-team-meta">
@@ -221,6 +224,7 @@ export default function UserApp() {
   // NFC "found" celebration ({ ok, rank, points, already, none, error }).
   const [found, setFound] = useState(null);
   const foundHandledRef = useRef(false);
+  const [scrollOpen, setScrollOpen] = useState(false);
   // Onboarding + persistent GPS state (survives reloads via localStorage).
   const [gpsOn, setGpsOn] = useState(() => localStorage.getItem('olympe-gps') === '1');
   const [ritualsDone, setRitualsDone] = useState(() => localStorage.getItem('olympe-rituals') === '1');
@@ -385,6 +389,10 @@ export default function UserApp() {
 
       {error && <div className="alert alert-error toast-error">{error}</div>}
 
+      {scrollOpen && (
+        <SecretScroll onClose={() => setScrollOpen(false)} onSolved={refresh} user={currentUser} />
+      )}
+
       <div className="app-view">
         {onChallengeTab ? (
           <ChallengeShell challenge={challenge} now={now} seam={seam}>
@@ -416,7 +424,9 @@ export default function UserApp() {
             meUid={data?.me?.uid}
             onAdmin={() => navigate('/admin')}
             onLogout={handleLogout}
+            onSecret={() => setScrollOpen(true)}
             seam={seam}
+            secret={data?.secret}
             teams={data?.teams}
           />
         )}

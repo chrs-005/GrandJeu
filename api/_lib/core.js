@@ -101,10 +101,11 @@ export async function loadGameState(db) {
     return stateCache.data;
   }
 
-  const [currentSnap, scoresSnap, parcoursSnap] = await Promise.all([
+  const [currentSnap, scoresSnap, parcoursSnap, secretSnap] = await Promise.all([
     db.collection('gameState').doc('current').get(),
     db.collection('gameState').doc('scores').get(),
     db.collection('gameState').doc('parcours').get(),
+    db.collection('gameState').doc('secret').get(),
   ]);
 
   const current = currentSnap.exists ? currentSnap.data() : {};
@@ -121,6 +122,7 @@ export async function loadGameState(db) {
     scores: scoresSnap.exists ? scoresSnap.data().teams || {} : {},
     challenge,
     parcours: parcoursSnap.exists ? parcoursSnap.data() : null,
+    secret: secretSnap.exists ? secretSnap.data() : null,
   };
   stateCache = { data, ts: Date.now() };
   return data;

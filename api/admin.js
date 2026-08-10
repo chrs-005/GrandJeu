@@ -244,7 +244,7 @@ async function handleGet(req, res, verified) {
   }
 
   const teams = await ensureScoresDoc(db);
-  const { current, challenge, parcours } = await loadGameState(db);
+  const { current, challenge, parcours, secret } = await loadGameState(db);
 
   const usersSnap = await db.collection('users').get();
   const locations = usersSnap.docs
@@ -276,6 +276,22 @@ async function handleGet(req, res, verified) {
     media,
     scoreLog,
     parcours: buildParcoursAdminView(parcours),
+    secret: secret
+      ? {
+          active: Boolean(secret.active),
+          text: secret.text || '',
+          answers: secret.answers || [],
+          hint: secret.hint || '',
+          points: secret.points || 150,
+          finders: Object.entries(secret.solvedBy || {}).map(([uid, entry]) => ({
+            uid,
+            username: entry.username || uid,
+            found: Boolean(entry.foundAtMs),
+            solved: Boolean(entry.solved),
+            points: entry.points || 0,
+          })),
+        }
+      : null,
   });
 }
 
@@ -436,6 +452,37 @@ async function handlePost(req, res, verified) {
         teams: zeroed,
         updatedAt: FieldValue.serverTimestamp(),
       });
+      invalidateStateCache();
+      return res.status(200).json({ ok: true });
+    }
+
+    // -- Secret de la chouette (hidden owl riddle on the home screen) -----------
+    case 'secret-setup': {
+      const text = String(body.text || '').trim().slice(0, 800);
+      const answers = (body.answers || []).map((a) => String(a).trim()).filter(Boolean);
+      if (body.active !== false && (!text || !answers.length)) {
+        return sendError(res, 400, 'Énigme et réponses requises.');
+      }
+      await db.collection('gameState').doc('secret').set(
+        {
+          active: body.active !== false,
+          text,
+          answers,
+          hint: String(body.hint || '').trim().slice(0, 200) || null,
+          points: num(body.points, 150, 0, 2000),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      invalidateStateCache();
+      return res.status(200).json({ ok: true });
+    }
+
+    case 'secret-reset': {
+      await db.collection('gameState').doc('secret').set(
+        { solvedBy: {}, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
       invalidateStateCache();
       return res.status(200).json({ ok: true });
     }
