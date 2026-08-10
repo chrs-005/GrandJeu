@@ -3031,3 +3031,29 @@ select:focus {
 }
 
 .scroll-hint { color: var(--ink-muted); font-size: 13px; font-style: italic; margin: 0; }
+
+/* Owl hotspot in ?tune=1: visible, draggable target */
+.owl-hotspot.is-tuning {
+  background: rgba(255, 82, 82, 0.22);
+  border: 2px dashed rgba(255, 82, 82, 0.95);
+  cursor: grab;
+  touch-action: none;
+  z-index: 9;
+}
+
+.owl-hotspot.is-tuning:active { cursor: grabbing; }
+
+.owl-tune-label {
+  background: rgba(180, 30, 30, 0.92);
+  border-radius: 999px;
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  left: 50%;
+  padding: 2px 8px;
+  position: absolute;
+  top: -20px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}

@@ -15,6 +15,31 @@ export const SCENE_LINES = {
   riddle: 62.8,
 };
 
+// Where the hidden owl sits on the home artboard, as a % of the scene box.
+// Drag it into place with ?tune=1, then bake the values here.
+export const OWL_POSITION = { x: 61, y: 42 };
+
+const OWL_KEY = 'olympe-owl-pos';
+
+export function loadOwlPosition() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(OWL_KEY));
+    return saved && typeof saved.x === 'number' ? saved : OWL_POSITION;
+  } catch {
+    return OWL_POSITION;
+  }
+}
+
+export function saveOwlPosition(x, y) {
+  const pos = { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+  localStorage.setItem(OWL_KEY, JSON.stringify(pos));
+  return pos;
+}
+
+export function clearOwlPosition() {
+  localStorage.removeItem(OWL_KEY);
+}
+
 const STORAGE_KEY = 'olympe-scene-lines';
 
 export function loadLineOverrides() {

@@ -51,11 +51,15 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
 // Home tab: team card + Mount Olympus leaderboard floating on the temple
 // artboard (design's "HOME — MOUNT OLYMPUS"). One fixed screen, no scroll.
-function HomeScreen({ info, teams, meUid, isAdmin, onAdmin, onLogout, seam, secret, onSecret }) {
+function HomeScreen({ info, teams, meUid, isAdmin, onAdmin, onLogout, seam, secret, onSecret, tuning }) {
   return (
     <section className="challenge-shell home-screen" style={seam ? { '--seam': `${seam}%` } : undefined}>
       <div className="home-scene">
-        {secret?.active && <SecretOwl onOpen={onSecret} solved={secret.solved} />}
+        {/* In ?tune=1 the hotspot shows even before a riddle is armed, so it
+            can be dragged onto the painted owl ahead of time. */}
+        {(secret?.active || tuning) && (
+          <SecretOwl onOpen={onSecret} solved={secret?.solved} tuning={tuning} />
+        )}
         <div className="home-team-card">
           <span className="app-emblem">{info.emblem}</span>
           <div className="home-team-meta">
@@ -428,6 +432,7 @@ export default function UserApp() {
             seam={seam}
             secret={data?.secret}
             teams={data?.teams}
+            tuning={tuning}
           />
         )}
         {tuning && (

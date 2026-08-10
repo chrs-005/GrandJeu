@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { SCENE_LINES, loadLineOverrides, saveLineOverride, clearLineOverrides } from '../config/sceneConfig';
+import {
+  SCENE_LINES,
+  loadLineOverrides,
+  saveLineOverride,
+  clearLineOverrides,
+  loadOwlPosition,
+  clearOwlPosition,
+} from '../config/sceneConfig';
 
 // Dev tuning overlay (?tune=1): drag the horizontal line to set where the
 // content box may start on the current screen. Values persist on this device
@@ -42,18 +49,23 @@ export default function SceneTuner({ screen, line, onChange }) {
     const body = Object.entries(merged)
       .map(([key, value]) => `  ${key}: ${value},`)
       .join('\n');
+    const owl = loadOwlPosition();
+    const text =
+      `export const SCENE_LINES = {\n${body}\n};\n\n` +
+      `export const OWL_POSITION = { x: ${owl.x}, y: ${owl.y} };`;
     try {
-      await navigator.clipboard.writeText(`export const SCENE_LINES = {\n${body}\n};`);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
     } catch {
       // Clipboard unavailable (non-HTTPS) — show the values instead.
-      window.prompt('Copie ces valeurs :', JSON.stringify(merged));
+      window.prompt('Copie ces valeurs :', text);
     }
   }
 
   function reset() {
     clearLineOverrides();
+    clearOwlPosition();
     onChange(SCENE_LINES[screen] ?? 45);
   }
 

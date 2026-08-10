@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { loadOwlPosition, saveOwlPosition } from '../config/sceneConfig';
 
 // Hidden easter egg on the home screen: tap the owl in Athena's hand five
 // times and it flies off to the right, loops back in from the left carrying a
@@ -50,15 +51,46 @@ function Owl({ scroll = false, flapping = false }) {
   );
 }
 
-export default function SecretOwl({ solved, onOpen }) {
+export default function SecretOwl({ solved, onOpen, tuning = false }) {
   const [taps, setTaps] = useState(0);
   const [phase, setPhase] = useState('idle');
+  const [pos, setPos] = useState(loadOwlPosition);
+  const [dragging, setDragging] = useState(false);
   const timersRef = useRef([]);
+  const hotspotRef = useRef(null);
 
   useEffect(
     () => () => timersRef.current.forEach(clearTimeout),
     []
   );
+
+  // ?tune=1 → drag the hotspot onto the painted owl, position persists.
+  useEffect(() => {
+    if (!dragging) return undefined;
+    const scene = hotspotRef.current?.parentElement;
+    if (!scene) return undefined;
+
+    function move(e) {
+      const rect = scene.getBoundingClientRect();
+      const point = e.touches ? e.touches[0] : e;
+      const x = Math.min(100, Math.max(0, ((point.clientX - rect.left) / rect.width) * 100));
+      const y = Math.min(100, Math.max(0, ((point.clientY - rect.top) / rect.height) * 100));
+      setPos(saveOwlPosition(x, y));
+      e.preventDefault();
+    }
+    const end = () => setDragging(false);
+
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    window.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('touchend', end);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', end);
+      window.removeEventListener('touchmove', move);
+      window.removeEventListener('touchend', end);
+    };
+  }, [dragging]);
 
   function tapHotspot() {
     if (phase !== 'idle') return;
@@ -80,13 +112,17 @@ export default function SecretOwl({ solved, onOpen }) {
     return (
       <button
         aria-label="chouette"
-        className={`owl-hotspot ${taps > 0 ? 'is-stirring' : ''}`}
-        onClick={tapHotspot}
-        style={{ '--taps': taps }}
+        className={`owl-hotspot ${taps > 0 ? 'is-stirring' : ''} ${tuning ? 'is-tuning' : ''}`}
+        onClick={tuning ? undefined : tapHotspot}
+        onMouseDown={tuning ? () => setDragging(true) : undefined}
+        onTouchStart={tuning ? () => setDragging(true) : undefined}
+        ref={hotspotRef}
+        style={{ '--owl-x': `${pos.x}%`, '--owl-y': `${pos.y}%` }}
         type="button"
       >
-        {/* invisible: the owl the player taps is the one painted on the artboard */}
-        {taps >= 3 && <span className="owl-glimmer" />}
+        {/* invisible in play: the owl they tap is the one painted on the artboard */}
+        {taps >= 3 && !tuning && <span className="owl-glimmer" />}
+        {tuning && <span className="owl-tune-label">🦉 {Math.round(pos.x)},{Math.round(pos.y)}</span>}
       </button>
     );
   }
