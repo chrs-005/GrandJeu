@@ -17,7 +17,7 @@ export const SCENE_LINES = {
 
 // Where the hidden owl sits on the home artboard, as a % of the scene box.
 // Drag it into place with ?tune=1, then bake the values here.
-export const OWL_POSITION = { x: 61, y: 42 };
+export const OWL_POSITION = { x: 59.3, y: 47.3 };
 
 const OWL_KEY = 'olympe-owl-pos';
 
