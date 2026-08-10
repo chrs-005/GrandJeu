@@ -2912,11 +2912,11 @@ select:focus {
    .challenge-shell::before, sitting just above it and below the content. */
 .owl-video {
   bottom: 0;
-  height: auto;
+  height: calc(100% - var(--device-safe-top));
   left: 0;
   margin: 0 auto;
-  min-height: 100%;
   object-fit: cover;
+  object-position: center top;
   pointer-events: none;
   position: fixed;
   right: 0;
@@ -2996,4 +2996,3 @@ select:focus {
   transform: translateX(-50%);
   white-space: nowrap;
 }
-
