@@ -51,14 +51,22 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
 // Home tab: team card + Mount Olympus leaderboard floating on the temple
 // artboard (design's "HOME — MOUNT OLYMPUS"). One fixed screen, no scroll.
-function HomeScreen({ info, teams, meUid, isAdmin, onAdmin, onLogout, seam, secret, onSecret, tuning }) {
+function HomeScreen({
+  info, teams, meUid, isAdmin, onAdmin, onLogout, seam, secret, onSecret, tuning, owlDebug,
+}) {
   return (
     <section className="challenge-shell home-screen" style={seam ? { '--seam': `${seam}%` } : undefined}>
       <div className="home-scene">
-        {/* In ?tune=1 the hotspot shows even before a riddle is armed, so it
-            can be dragged onto the painted owl ahead of time. */}
-        {(secret?.active || tuning) && (
-          <SecretOwl onOpen={onSecret} solved={secret?.solved} tuning={tuning} />
+        {/* ?tune=1 → drag it into place; ?owl=1 → visible AND tappable for
+            testing. Both show even before a riddle is armed. */}
+        {(secret?.active || tuning || owlDebug) && (
+          <SecretOwl
+            armed={Boolean(secret?.active)}
+            debug={owlDebug}
+            onOpen={onSecret}
+            solved={secret?.solved}
+            tuning={tuning}
+          />
         )}
         <div className="home-team-card">
           <span className="app-emblem">{info.emblem}</span>
@@ -234,6 +242,8 @@ export default function UserApp() {
   const [ritualsDone, setRitualsDone] = useState(() => localStorage.getItem('olympe-rituals') === '1');
   // Art-line tuning mode (?tune=1) + per-device overrides.
   const [tuning] = useState(() => new URLSearchParams(window.location.search).has('tune'));
+  // ?owl=1 → show the hotspot and let it be tapped, to test the easter egg.
+  const [owlDebug] = useState(() => new URLSearchParams(window.location.search).has('owl'));
   const [tunedLines, setTunedLines] = useState(loadLineOverrides);
 
   // One persistent GPS watch for the whole session (feeds the admin map).
@@ -430,6 +440,7 @@ export default function UserApp() {
             onLogout={handleLogout}
             onSecret={() => setScrollOpen(true)}
             seam={seam}
+            owlDebug={owlDebug}
             secret={data?.secret}
             teams={data?.teams}
             tuning={tuning}

@@ -51,7 +51,7 @@ function Owl({ scroll = false, flapping = false }) {
   );
 }
 
-export default function SecretOwl({ solved, onOpen, tuning = false }) {
+export default function SecretOwl({ solved, onOpen, tuning = false, debug = false, armed = true }) {
   const [taps, setTaps] = useState(0);
   const [phase, setPhase] = useState('idle');
   const [pos, setPos] = useState(loadOwlPosition);
@@ -112,7 +112,9 @@ export default function SecretOwl({ solved, onOpen, tuning = false }) {
     return (
       <button
         aria-label="chouette"
-        className={`owl-hotspot ${taps > 0 ? 'is-stirring' : ''} ${tuning ? 'is-tuning' : ''}`}
+        className={`owl-hotspot ${taps > 0 ? 'is-stirring' : ''} ${tuning ? 'is-tuning' : ''} ${
+          debug ? 'is-debug' : ''
+        }`}
         onClick={tuning ? undefined : tapHotspot}
         onMouseDown={tuning ? () => setDragging(true) : undefined}
         onTouchStart={tuning ? () => setDragging(true) : undefined}
@@ -121,8 +123,13 @@ export default function SecretOwl({ solved, onOpen, tuning = false }) {
         type="button"
       >
         {/* invisible in play: the owl they tap is the one painted on the artboard */}
-        {taps >= 3 && !tuning && <span className="owl-glimmer" />}
+        {taps >= 3 && !tuning && !debug && <span className="owl-glimmer" />}
         {tuning && <span className="owl-tune-label">🦉 {Math.round(pos.x)},{Math.round(pos.y)}</span>}
+        {debug && (
+          <span className="owl-tune-label">
+            {taps}/{TAPS_TO_WAKE} · {armed ? 'énigme armée' : 'AUCUNE ÉNIGME'}
+          </span>
+        )}
       </button>
     );
   }

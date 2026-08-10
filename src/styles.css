@@ -3057,3 +3057,11 @@ select:focus {
   transform: translateX(-50%);
   white-space: nowrap;
 }
+
+/* ?owl=1 — hotspot visible AND tappable, to test the easter egg on device */
+.owl-hotspot.is-debug {
+  background: rgba(242, 224, 184, 0.28);
+  border: 3px solid var(--warning);
+  box-shadow: 0 0 0 2px rgba(36, 22, 8, 0.6), 0 0 18px rgba(217, 164, 65, 0.7);
+  z-index: 9;
+}
