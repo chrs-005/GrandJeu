@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadOwlPosition, saveOwlPosition } from '../config/sceneConfig';
 import owlVideo from '../assets/bg-home-whileowl.mp4';
+import owlEndFrame from '../assets/bg-home-afterowl.jpg';
 
 // Hidden easter egg on the home screen: tap the owl in Athena's hand five
 // times and the whole artboard comes alive — the owl flies off and returns
@@ -24,6 +25,15 @@ export default function SecretOwl({
   const [dragging, setDragging] = useState(false);
   const hotspotRef = useRef(null);
   const videoRef = useRef(null);
+  const finishingRef = useRef(false);
+
+  // Decode the final still before it is needed. Otherwise the video can be
+  // removed one paint before the browser has the replacement background ready.
+  useEffect(() => {
+    const image = new Image();
+    image.src = owlEndFrame;
+    image.decode?.().catch(() => {});
+  }, []);
 
   // ?tune=1 → drag the hotspot onto the painted owl, position persists.
   useEffect(() => {
@@ -79,8 +89,18 @@ export default function SecretOwl({
   }, [playing]);
 
   function finish() {
-    setPlaying(false);
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+
+    // Switch the artboard first, then leave the video's final frame covering it
+    // long enough for the replacement background to be painted underneath.
     onRevealed?.();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setPlaying(false);
+        finishingRef.current = false;
+      });
+    });
   }
 
   return (
