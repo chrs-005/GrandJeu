@@ -63,6 +63,10 @@ export default function SecretGarden({ onClose }) {
     e.stopPropagation();
   }
 
+  function blockImageMenu(e) {
+    e.preventDefault();
+  }
+
   useEffect(() => {
     if (!canvas.w) return undefined;
 
@@ -103,15 +107,21 @@ export default function SecretGarden({ onClose }) {
   }, [canvas.w, canvas.h]);
 
   return (
-    <div className="garden-overlay" ref={wrapRef}>
-      <img alt="" className="garden-bg" src={bgGame} />
+    <div className="garden-overlay" onContextMenu={blockImageMenu} ref={wrapRef}>
+      <img alt="" className="garden-bg" draggable={false} onContextMenu={blockImageMenu} src={bgGame} />
 
       <div
         className="garden-canvas"
         ref={canvasRef}
         style={{ width: canvas.w, height: canvas.h, left: canvas.left, top: canvas.top }}
       >
-        <img alt="" className="garden-black-leaves" src={blackLeaves} />
+        <img
+          alt=""
+          className="garden-black-leaves"
+          draggable={false}
+          onContextMenu={blockImageMenu}
+          src={blackLeaves}
+        />
 
         {SPRITES.map((sprite) => (
         /* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */
@@ -120,6 +130,8 @@ export default function SecretGarden({ onClose }) {
             className="garden-sprite"
             draggable={false}
             key={sprite.id}
+            onContextMenu={blockImageMenu}
+            onDragStart={blockImageMenu}
             onMouseDown={(e) => startDrag(e, sprite.id)}
             onTouchStart={(e) => startDrag(e, sprite.id)}
             src={sprite.src}
@@ -134,7 +146,7 @@ export default function SecretGarden({ onClose }) {
       </div>
 
       {/* Painted bar sits above everything, so the sprites emerge from under it */}
-      <img alt="" className="garden-bar" src={bottomBar} />
+      <img alt="" className="garden-bar" draggable={false} onContextMenu={blockImageMenu} src={bottomBar} />
 
       <button className="garden-close" onClick={onClose} type="button">
         ✕
