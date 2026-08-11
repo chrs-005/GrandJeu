@@ -33,7 +33,7 @@ function FilPage({ currentUser, data, refresh, onFound }) {
 }
 
 function PuzzlePage() {
-  const [turns, setTurns] = useState([0, 0, 0]);
+  const [turns, setTurns] = useState([28, -42, 17]);
   const dragRef = useRef(null);
 
   function pointerPosition(event) {
