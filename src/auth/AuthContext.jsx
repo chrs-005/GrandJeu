@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
@@ -74,12 +75,16 @@ export function AuthProvider({ children }) {
     return signInWithEmailAndPassword(auth, email, password);
   }
 
+  async function signup(email, password) {
+    return createUserWithEmailAndPassword(auth, email, password);
+  }
+
   async function logout() {
     await signOut(auth);
     setUserRole(null);
   }
 
-  const value = { currentUser, userRole, loading, login, logout, refreshUserRole };
+  const value = { currentUser, userRole, loading, login, logout, refreshUserRole, signup };
 
   return (
     <AuthContext.Provider value={value}>

@@ -6,7 +6,7 @@ export function isArianneLogin(username, password) {
   const clean = String(username || '').trim().toLowerCase();
   return (
     (clean === ARIANNE_USERNAME || clean === ARIANNE_EMAIL) &&
-    String(password || '') === ARIANNE_PASSWORD
+    String(password || '').trim() === ARIANNE_PASSWORD
   );
 }
 
