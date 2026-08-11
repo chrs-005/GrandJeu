@@ -2489,6 +2489,57 @@ select:focus {
   width: 100%;
 }
 
+.puzzle-shell {
+  background: var(--puzzle-bg) center center / 100% auto no-repeat;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  position: relative;
+  touch-action: manipulation;
+}
+
+.puzzle-stack {
+  left: 50%;
+  position: absolute;
+  top: 54%;
+  transform: translate(-50%, -50%);
+  width: min(75.3vw, 347px);
+}
+
+.puzzle-stack::before {
+  content: '';
+  display: block;
+  padding-top: 100%;
+}
+
+.puzzle-layer {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  left: 50%;
+  padding: 0;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(var(--turn, 0deg));
+  transform-origin: center;
+  transition: transform 0.22s ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.puzzle-layer img {
+  display: block;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  width: 100%;
+  -webkit-touch-callout: none;
+}
+
+.puzzle-layer-outer { width: 100%; z-index: 1; }
+.puzzle-layer-middle { width: 79.93%; z-index: 2; }
+.puzzle-layer-center { width: 59.86%; z-index: 3; }
+
 /* Active tab grows so the challenge name still fits with three tabs */
 .tab-btn { min-width: 0; overflow: hidden; }
 .tab-btn.is-active { flex: 1.7; }

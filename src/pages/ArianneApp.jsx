@@ -5,6 +5,10 @@ import { useGame } from '../hooks/useGame';
 import { SCENE_LINES } from '../config/sceneConfig';
 import ParcoursScreen from '../components/ParcoursScreen';
 import ParcoursFoundOverlay from '../components/ParcoursFoundOverlay';
+import puzzleBg from '../assets/bg-puzzle.png';
+import puzzleOuter from '../assets/puzzle_1.png';
+import puzzleMiddle from '../assets/puzzle_2.png';
+import puzzleCenter from '../assets/puzzle_3.png';
 
 function FilPage({ currentUser, data, refresh, onFound }) {
   const parcours = data?.parcours;
@@ -29,17 +33,31 @@ function FilPage({ currentUser, data, refresh, onFound }) {
 }
 
 function PuzzlePage() {
-  const seam = SCENE_LINES.parcours ?? 53;
+  const [turns, setTurns] = useState([0, 0, 0]);
+
+  function rotateLayer(index) {
+    setTurns((values) => values.map((value, i) => (i === index ? value + 45 : value)));
+  }
 
   return (
-    <section className="challenge-shell parcours-shell arianne-shell" style={{ '--seam': `${seam}%` }}>
-      <div className="challenge-header challenge-scene" />
-      <div className="challenge-body">
-        <div className="arianne-empty">
-          <span className="found-icon">□</span>
-          <h2 className="found-title">Puzzle</h2>
-          <p className="found-sub">À ouvrir plus tard.</p>
-        </div>
+    <section className="puzzle-shell" style={{ '--puzzle-bg': `url(${puzzleBg})` }}>
+      <div className="puzzle-stack" aria-label="Puzzle concentrique">
+        {[
+          { src: puzzleOuter, className: 'puzzle-layer-outer', label: 'Anneau extérieur' },
+          { src: puzzleMiddle, className: 'puzzle-layer-middle', label: 'Anneau central' },
+          { src: puzzleCenter, className: 'puzzle-layer-center', label: 'Centre' },
+        ].map((layer, index) => (
+          <button
+            aria-label={layer.label}
+            className={`puzzle-layer ${layer.className}`}
+            key={layer.className}
+            onClick={() => rotateLayer(index)}
+            style={{ '--turn': `${turns[index]}deg` }}
+            type="button"
+          >
+            <img alt="" draggable="false" src={layer.src} />
+          </button>
+        ))}
       </div>
     </section>
   );
