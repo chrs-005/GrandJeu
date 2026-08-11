@@ -2,6 +2,24 @@
 // Each team walks its own rotation of the same destinations. Reaching one is
 // validated by GPS, which unlocks the walking route to the next.
 
+export const FIXED_FINAL_DESTINATION = {
+  id: 'arianne-final',
+  name: 'Destination finale',
+  lat: 33.8544286,
+  lng: 35.7263093,
+  hint: null,
+  points: 0,
+  fixed: true,
+};
+
+function withoutFixedFinal(destinations = []) {
+  return destinations.filter((d) => d?.id !== FIXED_FINAL_DESTINATION.id);
+}
+
+export function withFixedFinalDestination(destinations = []) {
+  return [...withoutFixedFinal(destinations), FIXED_FINAL_DESTINATION];
+}
+
 // Same stops for everyone, rotated start per team, so teams spread out
 // instead of trailing each other.
 export function buildSequences(destIds, teamUids) {
@@ -11,6 +29,31 @@ export function buildSequences(destIds, teamUids) {
     sequences[uid] = destIds.map((_, i) => destIds[(offset + i) % destIds.length]);
   });
   return sequences;
+}
+
+export function normalizeParcours(parcours, teamUids = []) {
+  const destinations = withFixedFinalDestination(parcours?.destinations || []);
+  const knownUids = Array.from(new Set([
+    ...Object.keys(parcours?.sequences || {}),
+    ...Object.keys(parcours?.progress || {}),
+    ...teamUids,
+  ]));
+  const sequences = { ...(parcours?.sequences || {}) };
+  const progress = { ...(parcours?.progress || {}) };
+
+  knownUids.forEach((uid) => {
+    const existing = sequences[uid] || [];
+    sequences[uid] = [...existing.filter((id) => id !== FIXED_FINAL_DESTINATION.id), FIXED_FINAL_DESTINATION.id];
+    progress[uid] = progress[uid] || { index: 0, found: [], route: '', routeStraight: false };
+  });
+
+  return {
+    ...(parcours || {}),
+    active: true,
+    destinations,
+    sequences,
+    progress,
+  };
 }
 
 export function currentDestId(parcours, uid) {

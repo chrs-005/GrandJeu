@@ -11,7 +11,12 @@ import {
   withErrorHandling,
 } from './_lib/core.js';
 import { territoryAreas, SEED_RADIUS_M } from './_lib/territory.js';
-import { buildSequences, buildParcoursAdminView } from './_lib/parcours.js';
+import {
+  FIXED_FINAL_DESTINATION,
+  buildSequences,
+  buildParcoursAdminView,
+  withFixedFinalDestination,
+} from './_lib/parcours.js';
 import {
   loadSheetChallenges,
   loadDefisState,
@@ -607,7 +612,7 @@ async function handlePost(req, res, verified) {
       const teamsMap = await ensureScoresDoc(db);
       const teamUids = Object.keys(teamsMap);
       const ref = db.collection('gameState').doc('parcours');
-      const destinations = (body.destinations || [])
+      const destinations = withFixedFinalDestination((body.destinations || [])
         .map((d, i) => {
           const name = String(d.name || '').trim().slice(0, 80);
           const lat = Number(d.lat);
@@ -623,11 +628,17 @@ async function handlePost(req, res, verified) {
             points: num(d.points, 100, 0, 1000),
           };
         })
-        .filter(Boolean);
+        .filter(Boolean));
 
       if (!destinations.length) return sendError(res, 400, 'Ajoutez au moins une destination.');
 
-      const sequences = buildSequences(destinations.map((d) => d.id), teamUids);
+      const regularDestIds = destinations
+        .filter((d) => d.id !== FIXED_FINAL_DESTINATION.id)
+        .map((d) => d.id);
+      const sequences = buildSequences(regularDestIds, teamUids);
+      teamUids.forEach((uid) => {
+        sequences[uid] = [...(sequences[uid] || []), FIXED_FINAL_DESTINATION.id];
+      });
       const progress = {};
       teamUids.forEach((uid) => {
         progress[uid] = { index: 0, found: [], route: '', routeStraight: false };

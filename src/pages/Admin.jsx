@@ -13,6 +13,11 @@ import DefisAdmin from '../components/DefisAdmin';
 const QUICK_POINTS = [100, 70, 50, 30];
 const RANKED_TYPES = ['steps', 'territory'];
 const FALLBACK_CENTER = { lat: 33.8938, lng: 35.5018 };
+const FIXED_FINAL_DESTINATION_ID = 'arianne-final';
+
+function editableParcoursDestinations(parcours) {
+  return (parcours?.destinations || []).filter((d) => d.id !== FIXED_FINAL_DESTINATION_ID);
+}
 
 function formatAge(updatedAt) {
   if (!updatedAt) return '?';
@@ -620,12 +625,12 @@ function ParcoursAdmin({ parcours, locations, teams, busy, onAction }) {
     () => Object.fromEntries((teams || []).map((t) => [t.uid, t.username])),
     [teams]
   );
-  const [draft, setDraft] = useState(() => parcours?.destinations || []);
+  const [draft, setDraft] = useState(() => editableParcoursDestinations(parcours));
   const [dirty, setDirty] = useState(false);
 
   // Adopt server state until the admin starts editing (avoids clobbering typing).
   useEffect(() => {
-    if (!dirty) setDraft(parcours?.destinations || []);
+    if (!dirty) setDraft(editableParcoursDestinations(parcours));
   }, [parcours, dirty]);
 
   const mapCenter = useMemo(() => locationsCenter(locations), [locations]);
@@ -674,7 +679,7 @@ function ParcoursAdmin({ parcours, locations, teams, busy, onAction }) {
     <div className="parcours-admin">
       <p className="form-hint">
         🧵 Touchez la carte pour ajouter un lieu. Chaque équipe visite tous les lieux, mais dans un
-        ordre décalé. Arriver sur place débloque le chemin vers le suivant.
+        ordre décalé. Le dernier lieu est fixe et s’ajoute tout seul.
       </p>
 
       <SatMap
@@ -730,7 +735,7 @@ function ParcoursAdmin({ parcours, locations, teams, busy, onAction }) {
       ))}
 
       <div className="btn-group">
-        <button className="btn btn-primary" disabled={busy || !draft.length} onClick={() => save(true)} type="button">
+        <button className="btn btn-primary" disabled={busy} onClick={() => save(true)} type="button">
           💾 Enregistrer & activer
         </button>
         {parcours?.active ? (
@@ -738,7 +743,7 @@ function ParcoursAdmin({ parcours, locations, teams, busy, onAction }) {
             ⏸ Mettre en pause
           </button>
         ) : (
-          <button className="btn btn-secondary btn-sm" disabled={busy || !parcours?.destinations?.length} onClick={() => onAction('parcours-toggle', { active: true }, 'Parcours actif !')} type="button">
+          <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onAction('parcours-toggle', { active: true }, 'Parcours actif !')} type="button">
             ▶️ Activer
           </button>
         )}

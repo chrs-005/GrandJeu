@@ -23,6 +23,7 @@ import {
   buildParcoursView,
   currentDestId,
   destinationById,
+  normalizeParcours,
 } from './_lib/parcours.js';
 
 // Drawings/photos are immutable once submitted, so cache media reads (guess phase).
@@ -255,6 +256,7 @@ async function handleGet(req, res) {
     .sort((a, b) => b.score - a.score || a.username.localeCompare(b.username));
 
   const challengeView = await buildChallengeView(db, challenge, decoded.uid);
+  const parcoursViewState = normalizeParcours(parcours, [decoded.uid]);
 
   return res.status(200).json({
     ok: true,
@@ -267,7 +269,7 @@ async function handleGet(req, res) {
     },
     teams,
     challenge: challengeView,
-    parcours: buildParcoursView(parcours, decoded.uid),
+    parcours: buildParcoursView(parcoursViewState, decoded.uid),
     // Only whether an owl is worth tapping — never the riddle itself.
     secret: secret?.active
       ? {
@@ -632,8 +634,7 @@ async function handlePost(req, res) {
       const ref = db.collection('gameState').doc('parcours');
       const outcome = await db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
-        if (!snap.exists) return { inactive: true };
-        const parcours = snap.data();
+        const parcours = normalizeParcours(snap.exists ? snap.data() : null, [uid]);
         if (!parcours.active) return { inactive: true };
 
         const sequence = parcours.sequences?.[uid] || [];
@@ -659,15 +660,28 @@ async function handlePost(req, res) {
         const nextIndex = index + 1;
         const nextDestId = sequence[nextIndex] || null;
 
-        tx.update(ref, {
-          [`progress.${uid}.index`]: nextIndex,
-          [`progress.${uid}.found`]: [
-            ...(progress.found || []),
-            { destId: dest.id, name: dest.name, atMs: now, points, rank },
-          ],
-          [`progress.${uid}.route`]: '',
-          [`progress.${uid}.routeStraight`]: false,
-        });
+        tx.set(
+          ref,
+          {
+            active: true,
+            destinations: parcours.destinations,
+            sequences: parcours.sequences,
+            progress: {
+              [uid]: {
+                ...progress,
+                index: nextIndex,
+                found: [
+                  ...(progress.found || []),
+                  { destId: dest.id, name: dest.name, atMs: now, points, rank },
+                ],
+                route: '',
+                routeStraight: false,
+              },
+            },
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
 
         return {
           found: true,
@@ -725,8 +739,7 @@ async function handlePost(req, res) {
       }
       const ref = db.collection('gameState').doc('parcours');
       const snap = await ref.get();
-      if (!snap.exists) return res.status(200).json({ ok: true, inactive: true });
-      const parcours = snap.data();
+      const parcours = normalizeParcours(snap.exists ? snap.data() : null, [uid]);
       if (!parcours.active) return res.status(200).json({ ok: true, inactive: true });
 
       const destId = currentDestId(parcours, uid);
@@ -737,11 +750,23 @@ async function handlePost(req, res) {
         { lat: latitude, lng: longitude },
         { lat: dest.lat, lng: dest.lng }
       );
-      await ref.update({
-        [`progress.${uid}.route`]: JSON.stringify(route.points),
-        [`progress.${uid}.routeStraight`]: route.straight,
-        [`progress.${uid}.routeAtMs`]: Date.now(),
-      });
+      await ref.set(
+        {
+          active: true,
+          destinations: parcours.destinations,
+          sequences: parcours.sequences,
+          progress: {
+            [uid]: {
+              ...(parcours.progress?.[uid] || { index: 0, found: [] }),
+              route: JSON.stringify(route.points),
+              routeStraight: route.straight,
+              routeAtMs: Date.now(),
+            },
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
       invalidateStateCache();
       return res.status(200).json({ ok: true, points: route.points.length, straight: route.straight });
     }
