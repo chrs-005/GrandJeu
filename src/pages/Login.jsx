@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { ARIANNE_EMAIL, ARIANNE_PASSWORD, isArianneLogin } from '../auth/arianneAccess';
+import { isArianneLogin, signInArianneDevice } from '../auth/arianneAccess';
 import { APP_NAME, APP_SUBTITLE } from '../config/gameConfig';
 import friezeImg from '../assets/frieze.jpg';
 
@@ -26,24 +26,14 @@ export default function Login() {
     setLoading(true);
     try {
       const arianne = isArianneLogin(username, password);
-      const email = arianne ? ARIANNE_EMAIL : normalizeLogin(username);
-      const loginPassword = arianne ? ARIANNE_PASSWORD : password;
-      try {
-        await login(email, loginPassword);
-      } catch (err) {
-        if (!arianne || !canCreateArianne(err)) throw err;
-        await signup(ARIANNE_EMAIL, ARIANNE_PASSWORD);
-      }
+      if (arianne) await signInArianneDevice(login, signup);
+      else await login(normalizeLogin(username), password);
       navigate(arianne ? '/arianne' : '/app');
     } catch (err) {
       setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
-  }
-
-  function canCreateArianne(err) {
-    return ['auth/user-not-found', 'auth/invalid-credential'].includes(err?.code);
   }
 
   function friendlyError(err) {

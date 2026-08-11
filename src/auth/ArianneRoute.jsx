@@ -1,15 +1,26 @@
+import { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import { isArianneUser } from './arianneAccess';
+import { isArianneUser, isLegacyArianneUser, signInArianneDevice } from './arianneAccess';
 
 export default function ArianneRoute({ children }) {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, loading, login, signup } = useAuth();
+  const migrationStarted = useRef(false);
+  const [migrationError, setMigrationError] = useState('');
 
-  if (loading) {
+  useEffect(() => {
+    if (loading || !isLegacyArianneUser(currentUser) || migrationStarted.current) return;
+    migrationStarted.current = true;
+    signInArianneDevice(login, signup).catch((error) => {
+      setMigrationError(error?.message || 'Migration impossible.');
+    });
+  }, [currentUser, loading, login, signup]);
+
+  if (loading || isLegacyArianneUser(currentUser)) {
     return (
       <div className="loading-screen">
-        <div className="spinner" />
-        <p>Loading...</p>
+        {!migrationError && <div className="spinner" />}
+        <p>{migrationError || 'Loading...'}</p>
       </div>
     );
   }
