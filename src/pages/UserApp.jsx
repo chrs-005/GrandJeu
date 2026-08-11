@@ -18,7 +18,6 @@ import { teamInfo, challengeMeta } from '../config/gameConfig';
 import { SCENE_LINES, loadLineOverrides } from '../config/sceneConfig';
 import ChallengeShell from '../components/ChallengeShell';
 import SceneTuner from '../components/SceneTuner';
-import ParcoursScreen from '../components/ParcoursScreen';
 import DefisScreen from '../components/DefisScreen';
 import SecretOwl from '../components/SecretOwl';
 import GardenDrawer from '../components/GardenDrawer';
@@ -250,9 +249,6 @@ export default function UserApp() {
   const [homePeekSignal, setHomePeekSignal] = useState(0);
   const prevTabRef = useRef('home');
   const prevChallengeRef = useRef(null);
-  // NFC "found" celebration ({ ok, rank, points, already, none, error }).
-  const [found, setFound] = useState(null);
-  const foundHandledRef = useRef(false);
   // Jardin secret: the hold reveals a tiny pass lock, then the garden.
   const [gateOpen, setGateOpen] = useState(false);
   const [gardenOpen, setGardenOpen] = useState(false);
@@ -325,24 +321,6 @@ export default function UserApp() {
     prevTabRef.current = tab;
   }, [tab]);
 
-  // NFC tag tapped (?found=<token>): validate the destination for this team,
-  // which awards it and unlocks the route to their next stop.
-  useEffect(() => {
-    if (foundHandledRef.current || !currentUser || !data) return;
-    const token = localStorage.getItem('olympe-pending-found');
-    if (!token) return;
-    foundHandledRef.current = true;
-    localStorage.removeItem('olympe-pending-found');
-    setTab('fil');
-
-    gameAction(currentUser, 'parcours-found', { token })
-      .then((r) => {
-        setFound(r);
-        refresh();
-      })
-      .catch(() => setFound({ error: true }));
-  }, [currentUser, data, refresh]);
-
   // Gate: request permissions once, up front, before the game (design's
   // "Sacred Rituals" screen). Skipped forever once completed.
   if (!ritualsDone) {
@@ -357,84 +335,15 @@ export default function UserApp() {
     );
   }
 
-  const parcours = data?.parcours;
   const onChallengeTab = tab === 'challenge' && challenge && ChallengeComponent;
-  const onFilTab = tab === 'fil' && parcours?.active;
   const onDefisTab = tab === 'defis';
 
   // "Art line" per screen: content starts below it (tunable with ?tune=1).
-  const screenKey = onChallengeTab ? challenge.type : onFilTab ? 'parcours' : 'home';
+  const screenKey = onChallengeTab ? challenge.type : 'home';
   const seam = tunedLines[screenKey] ?? SCENE_LINES[screenKey] ?? 45;
-
-  const rankOrdinal = found?.rank === 1 ? 'ʳᵉ' : 'ᵉ';
 
   return (
     <div className="app-shell" style={{ '--team-color': info.color }}>
-      {found && (
-        <div className="found-overlay" onClick={() => setFound(null)}>
-          <div className="found-card" onClick={(e) => e.stopPropagation()}>
-            {found.found ? (
-              <>
-                <span className="found-icon">{found.finished ? '🏛️' : '🧵'}</span>
-                <h2 className="found-title">{found.name} — trouvé !</h2>
-                <p className="found-sub">
-                  {found.rank === 1
-                    ? 'Première équipe sur ce lieu !'
-                    : `${found.rank}${rankOrdinal} équipe sur ce lieu`}
-                </p>
-                {found.points > 0 && <span className="points-chip">+{found.points} pts</span>}
-                <p className="found-sub">
-                  {found.finished
-                    ? 'C’était le dernier lieu — parcours terminé !'
-                    : `Ariane déroule le fil vers : ${found.nextName || 'le lieu suivant'}`}
-                </p>
-              </>
-            ) : found.wrongTag ? (
-              <>
-                <span className="found-icon">🚫</span>
-                <h2 className="found-title">Ce n’est pas ton lieu</h2>
-                <p className="found-sub">
-                  Ce tag est celui de « {found.name} ». Suis ta flèche jusqu’au tien !
-                </p>
-              </>
-            ) : found.alreadyFound ? (
-              <>
-                <span className="found-icon">✅</span>
-                <h2 className="found-title">Déjà trouvé</h2>
-                <p className="found-sub">Vous avez déjà validé « {found.name} ».</p>
-              </>
-            ) : found.done ? (
-              <>
-                <span className="found-icon">🏛️</span>
-                <h2 className="found-title">Parcours terminé</h2>
-                <p className="found-sub">Vous avez déjà retrouvé tous les lieux.</p>
-              </>
-            ) : found.inactive ? (
-              <>
-                <span className="found-icon">🧭</span>
-                <h2 className="found-title">Aucune chasse en cours</h2>
-                <p className="found-sub">Le Fil d’Ariane n’est pas actif pour l’instant.</p>
-              </>
-            ) : found.unknown ? (
-              <>
-                <span className="found-icon">❓</span>
-                <h2 className="found-title">Tag inconnu</h2>
-                <p className="found-sub">Ce tag ne fait pas partie du jeu.</p>
-              </>
-            ) : (
-              <>
-                <span className="found-icon">⚠️</span>
-                <h2 className="found-title">Validation impossible</h2>
-                <p className="found-sub">Réessaie en touchant le tag à nouveau.</p>
-              </>
-            )}
-            <button className="btn btn-primary" onClick={() => setFound(null)} type="button">
-              Continuer
-            </button>
-          </div>
-        </div>
-      )}
-
       {error && <div className="alert alert-error toast-error">{error}</div>}
 
       {gateOpen && (
@@ -465,13 +374,6 @@ export default function UserApp() {
           </ChallengeShell>
         ) : onDefisTab ? (
           <DefisScreen now={now} user={currentUser} />
-        ) : onFilTab ? (
-          <section className="challenge-shell parcours-shell" style={{ '--seam': `${seam}%` }}>
-            <div className="challenge-header challenge-scene" />
-            <div className="challenge-body">
-              <ParcoursScreen parcours={parcours} refresh={refresh} user={currentUser} />
-            </div>
-          </section>
         ) : (
           <HomeScreen
             info={info}
@@ -517,15 +419,6 @@ export default function UserApp() {
         >
           <span className="tab-icon">📜</span>
           <span className="tab-label">Défis</span>
-        </button>
-        <button
-          className={`tab-btn ${tab === 'fil' ? 'is-active' : ''} ${parcours?.active ? '' : 'is-disabled'}`}
-          disabled={!parcours?.active}
-          onClick={() => parcours?.active && setTab('fil')}
-          type="button"
-        >
-          <span className="tab-icon">🧵</span>
-          <span className="tab-label">Le Fil</span>
         </button>
         <button
           className={`tab-btn ${tab === 'challenge' ? 'is-active' : ''} ${challenge ? '' : 'is-disabled'}`}

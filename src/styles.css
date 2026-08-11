@@ -2464,6 +2464,31 @@ select:focus {
   text-align: center;
 }
 
+.arianne-app .tab-btn { min-height: 42px; }
+
+.arianne-tab-bar .tab-btn.is-active { flex: 1.8; }
+
+.arianne-exit {
+  flex: 0 0 52px;
+  max-width: 52px;
+}
+
+.arianne-empty {
+  align-items: center;
+  background: var(--clay-panel);
+  border-radius: 10px;
+  box-shadow: var(--cut-line), var(--cut-shadow);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 auto;
+  max-width: 320px;
+  padding: 22px 18px;
+  text-align: center;
+  width: 100%;
+}
+
 /* Active tab grows so the challenge name still fits with three tabs */
 .tab-btn { min-width: 0; overflow: hidden; }
 .tab-btn.is-active { flex: 1.7; }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { isArianneLogin } from '../auth/arianneAccess';
 import { APP_NAME, APP_SUBTITLE } from '../config/gameConfig';
 import friezeImg from '../assets/frieze.jpg';
 
@@ -24,8 +25,9 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
+      const arianne = isArianneLogin(username, password);
       await login(normalizeLogin(username), password);
-      navigate('/app');
+      navigate(arianne ? '/arianne' : '/app');
     } catch (err) {
       setError(friendlyError(err));
     } finally {

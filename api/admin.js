@@ -22,6 +22,7 @@ import {
 import { appendSheetChallenge, sheetConfigured } from './_lib/sheets.js';
 
 const DEFAULT_RANK_POINTS = [100, 70, 50, 35, 20];
+const ARIANNE_EMAIL = 'arianne@grandjeu.local';
 
 const PUSH_BY_TYPE = {
   steps: { title: '🏃 La Course d’Hermès !', body: 'Courez ! Le messager des dieux vous défie. Ouvrez l’app !' },
@@ -649,11 +650,20 @@ async function handlePost(req, res, verified) {
       invalidateStateCache();
 
       if (body.active !== false) {
-        await sendPush(db, {
-          title: '🧵 Le Fil d’Ariane',
-          body: 'Ariane a tendu son fil… Ouvrez l’app et suivez la flèche !',
-          url: '/app',
-        });
+        const arianneSnap = await db
+          .collection('users')
+          .where('email', '==', ARIANNE_EMAIL)
+          .limit(1)
+          .get();
+        const arianneUid = arianneSnap.empty ? null : arianneSnap.docs[0].id;
+        if (arianneUid) {
+          await sendPush(db, {
+            title: '🧵 Le Fil d’Ariane',
+            body: 'Ariane a tendu son fil… Ouvrez l’app et suivez la flèche !',
+            url: '/arianne',
+            targetUid: arianneUid,
+          });
+        }
       }
       return res.status(200).json({ ok: true, destinations });
     }
