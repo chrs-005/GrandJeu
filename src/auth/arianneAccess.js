@@ -1,6 +1,6 @@
-export const ARIANNE_USERNAME = 'arianne';
+export const ARIANNE_USERNAME = 'username';
 export const ARIANNE_EMAIL = 'arianne@grandjeu.local';
-export const ARIANNE_PASSWORD = 'guide me';
+export const ARIANNE_PASSWORD = 'password';
 
 const ARIANNE_DEVICE_KEY = 'grandjeu.arianne.device';
 const ARIANNE_DEVICE_PREFIX = 'arianne-';

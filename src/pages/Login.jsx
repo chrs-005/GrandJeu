@@ -75,7 +75,7 @@ export default function Login() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="faucon"
+              placeholder="user name"
               required
               autoComplete="username"
               autoCapitalize="none"
