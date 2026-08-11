@@ -439,7 +439,7 @@ export default function UserApp() {
           }}
         />
       )}
-      {gardenOpen && <SecretGarden measure={tuning} onClose={() => setGardenOpen(false)} />}
+      {gardenOpen && <SecretGarden onClose={() => setGardenOpen(false)} />}
 
       <div className="app-view">
         {onChallengeTab ? (
