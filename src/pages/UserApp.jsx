@@ -22,6 +22,7 @@ import ParcoursScreen from '../components/ParcoursScreen';
 import DefisScreen from '../components/DefisScreen';
 import SecretOwl from '../components/SecretOwl';
 import SecretScroll from '../components/SecretScroll';
+import GardenDrawer from '../components/GardenDrawer';
 import GardenGate from '../components/GardenGate';
 import SecretGarden from '../components/SecretGarden';
 import StepsChallenge from '../components/challenges/StepsChallenge';
@@ -60,8 +61,6 @@ function HomeScreen({
   // The server remembers the discovery, so it survives a reload/reinstall.
   const [justRevealed, setJustRevealed] = useState(false);
   const revealed = justRevealed || Boolean(secret?.found);
-  // Tapping the team card whispers that a hidden garden exists.
-  const [gardenHint, setGardenHint] = useState(false);
 
   return (
     <section
@@ -81,24 +80,15 @@ function HomeScreen({
             tuning={tuning}
           />
         )}
-        <div className="home-team-block">
-          <button
-            className="home-team-card"
-            onClick={() => setGardenHint((v) => !v)}
-            type="button"
-          >
+        <GardenDrawer onOpenGarden={onGarden}>
+          <div className="home-team-card">
             <span className="app-emblem">{info.emblem}</span>
             <div className="home-team-meta">
               <strong>{info.title}</strong>
               <span>Sous la protection de {info.god}</span>
             </div>
-          </button>
-          {gardenHint && (
-            <button className="garden-tease" onClick={onGarden} type="button">
-              🌿 jardin secret
-            </button>
-          )}
-        </div>
+          </div>
+        </GardenDrawer>
       </div>
 
       <div className="challenge-body home-body">

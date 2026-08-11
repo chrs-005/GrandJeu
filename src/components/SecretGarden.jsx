@@ -35,14 +35,14 @@ export default function SecretGarden({ onClose }) {
   const [moved, setMoved] = useState(false);
   const dragRef = useRef(null);
 
-  // Cover-fit the artwork box to the screen, then measure it so children can
-  // be positioned in percentages of the artwork itself.
+  // Fit (not crop) the artwork inside the safe area: it's an aligning game, so
+  // the whole board has to be visible and everything must share one scale.
   const measure = useCallback(() => {
     const el = wrapRef.current;
     if (!el) return;
     const { width, height } = el.getBoundingClientRect();
     if (!width || !height) return;
-    const scale = Math.max(width / ART_W, height / ART_H);
+    const scale = Math.min(width / ART_W, height / ART_H);
     const w = ART_W * scale;
     const h = ART_H * scale;
     setCanvas({ w, h, left: (width - w) / 2, top: (height - h) / 2 });
@@ -108,6 +108,7 @@ export default function SecretGarden({ onClose }) {
         <img alt="" className="garden-bg" src={bgGame} />
 
         {SPRITES.map((sprite) => (
+        /* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */
           <img
             alt=""
             className="garden-sprite"
