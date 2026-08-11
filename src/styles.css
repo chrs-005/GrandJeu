@@ -30,6 +30,11 @@
   --font-body: 'Crimson Pro', Georgia, serif;
   --device-safe-top: max(0px, calc(env(safe-area-inset-top, 0px) - 10px));
   --device-safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Tune these in DevTools if the owl clip drifts from the still background. */
+  --owl-video-scale: 1;
+  --owl-video-x: 0px;
+  --owl-video-y: -2px;
+
   /* Cut-out paper recipes: crisp outline + hard offset shadow */
   --cut-line: 0 0 0 1px rgba(36, 22, 8, 0.5);
   --cut-shadow: 6px 7px 0 rgba(36, 22, 8, 0.35);
@@ -2903,6 +2908,28 @@ select:focus {
   0%, 100% { box-shadow: 0 0 0 2px rgba(36, 22, 8, 0.55), 0 0 14px rgba(217, 164, 65, 0.5); }
   50% { box-shadow: 0 0 0 2px rgba(36, 22, 8, 0.55), 0 0 26px rgba(217, 164, 65, 0.95); }
 }
+
+/* The clip replaces the artboard while it plays: same fixed geometry as
+   .challenge-shell::before, sitting just above it and below the content. */
+.owl-video {
+  bottom: 0;
+  height: calc(100% - var(--device-safe-top));
+  left: 0;
+  margin: 0 auto;
+  object-fit: cover;
+  object-position: center top;
+  pointer-events: none;
+  position: fixed;
+  right: 0;
+  top: var(--device-safe-top);
+  transform: translate(var(--owl-video-x), var(--owl-video-y)) scale(var(--owl-video-scale));
+  transform-origin: center top;
+  width: min(100vw, 460px);
+  z-index: -1;
+}
+
+/* After the flight the scene stays on the end frame. */
+.home-screen.is-owl-revealed { --artboard: url('./assets/bg-home-afterowl.jpg'); }
 
 .secret-location-admin {
   background: var(--ink);

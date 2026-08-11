@@ -58,9 +58,14 @@ function HomeScreen({
   info, teams, meUid, isAdmin, onAdmin, onLogout, seam, secret, onSecret, tuning, owlDebug, onGarden,
   gardenPeekSignal,
 }) {
+  // Once the owl has delivered the scroll the artboard stays on the end frame.
+  // The server remembers the discovery, so it survives a reload/reinstall.
+  const [justRevealed, setJustRevealed] = useState(false);
+  const revealed = justRevealed || Boolean(secret?.found);
+
   return (
     <section
-      className="challenge-shell home-screen"
+      className={`challenge-shell home-screen ${revealed ? 'is-owl-revealed' : ''}`}
       style={seam ? { '--seam': `${seam}%` } : undefined}
     >
       <div className="home-scene">
@@ -71,6 +76,8 @@ function HomeScreen({
             armed={Boolean(secret?.active)}
             debug={owlDebug}
             onOpen={onSecret}
+            onRevealed={() => setJustRevealed(true)}
+            revealed={revealed}
             tuning={tuning}
           />
         )}
