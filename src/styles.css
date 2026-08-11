@@ -2490,7 +2490,10 @@ select:focus {
 }
 
 .puzzle-shell {
-  background: var(--puzzle-bg) center center / 100% auto no-repeat;
+  background-image: var(--puzzle-bg);
+  background-position: center calc(50% + min(2vw, 9px));
+  background-repeat: no-repeat;
+  background-size: 100% auto;
   height: 100%;
   margin: 0;
   overflow: hidden;
@@ -2518,9 +2521,6 @@ select:focus {
 }
 
 .puzzle-layer {
-  appearance: none;
-  background: transparent;
-  border: 0;
   pointer-events: none;
   left: 50%;
   padding: 0;
@@ -2528,8 +2528,8 @@ select:focus {
   top: 50%;
   transform: translate(-50%, -50%) rotate(var(--turn, 0deg));
   transform-origin: center;
-  transition: transform 0.08s linear;
   -webkit-tap-highlight-color: transparent;
+  will-change: transform;
 }
 
 .puzzle-layer img {

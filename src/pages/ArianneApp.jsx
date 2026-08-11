@@ -36,10 +36,6 @@ function PuzzlePage() {
   const [turns, setTurns] = useState([0, 0, 0]);
   const dragRef = useRef(null);
 
-  function rotateLayer(index) {
-    setTurns((values) => values.map((value, i) => (i === index ? value + 45 : value)));
-  }
-
   function pointerPosition(event) {
     const bounds = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - (bounds.left + bounds.width / 2);
@@ -55,7 +51,7 @@ function PuzzlePage() {
     if (radius > 1) return;
 
     const index = radius <= 0.5986 ? 2 : radius <= 0.7993 ? 1 : 0;
-    dragRef.current = { index, lastAngle: angle, moved: false };
+    dragRef.current = { index, lastAngle: angle };
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
@@ -68,7 +64,6 @@ function PuzzlePage() {
     if (delta > 180) delta -= 360;
     if (delta < -180) delta += 360;
 
-    if (Math.abs(delta) > 0.15) drag.moved = true;
     drag.lastAngle = angle;
     setTurns((values) => values.map((value, index) => (
       index === drag.index ? value + delta : value
@@ -79,7 +74,6 @@ function PuzzlePage() {
     const drag = dragRef.current;
     if (!drag) return;
 
-    if (!drag.moved) rotateLayer(drag.index);
     dragRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -105,16 +99,14 @@ function PuzzlePage() {
           { src: puzzleMiddle, className: 'puzzle-layer-middle', label: 'Anneau central' },
           { src: puzzleCenter, className: 'puzzle-layer-center', label: 'Centre' },
         ].map((layer, index) => (
-          <button
+          <div
             aria-label={layer.label}
             className={`puzzle-layer ${layer.className}`}
             key={layer.className}
-            onClick={() => rotateLayer(index)}
             style={{ '--turn': `${turns[index]}deg` }}
-            type="button"
           >
             <img alt="" draggable="false" src={layer.src} />
-          </button>
+          </div>
         ))}
       </div>
     </section>
