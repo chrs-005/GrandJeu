@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useGame } from '../hooks/useGame';
@@ -34,14 +34,72 @@ function FilPage({ currentUser, data, refresh, onFound }) {
 
 function PuzzlePage() {
   const [turns, setTurns] = useState([0, 0, 0]);
+  const dragRef = useRef(null);
 
   function rotateLayer(index) {
     setTurns((values) => values.map((value, i) => (i === index ? value + 45 : value)));
   }
 
+  function pointerPosition(event) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - (bounds.left + bounds.width / 2);
+    const y = event.clientY - (bounds.top + bounds.height / 2);
+    return {
+      angle: Math.atan2(y, x) * (180 / Math.PI),
+      radius: Math.hypot(x, y) / (bounds.width / 2),
+    };
+  }
+
+  function handlePointerDown(event) {
+    const { angle, radius } = pointerPosition(event);
+    if (radius > 1) return;
+
+    const index = radius <= 0.5986 ? 2 : radius <= 0.7993 ? 1 : 0;
+    dragRef.current = { index, lastAngle: angle, moved: false };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handlePointerMove(event) {
+    const drag = dragRef.current;
+    if (!drag || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+
+    const { angle } = pointerPosition(event);
+    let delta = angle - drag.lastAngle;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+
+    if (Math.abs(delta) > 0.15) drag.moved = true;
+    drag.lastAngle = angle;
+    setTurns((values) => values.map((value, index) => (
+      index === drag.index ? value + delta : value
+    )));
+  }
+
+  function handlePointerUp(event) {
+    const drag = dragRef.current;
+    if (!drag) return;
+
+    if (!drag.moved) rotateLayer(drag.index);
+    dragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function handlePointerCancel() {
+    dragRef.current = null;
+  }
+
   return (
     <section className="puzzle-shell" style={{ '--puzzle-bg': `url(${puzzleBg})` }}>
-      <div className="puzzle-stack" aria-label="Puzzle concentrique">
+      <div
+        aria-label="Puzzle concentrique"
+        className="puzzle-stack"
+        onPointerCancel={handlePointerCancel}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+      >
         {[
           { src: puzzleOuter, className: 'puzzle-layer-outer', label: 'Anneau extérieur' },
           { src: puzzleMiddle, className: 'puzzle-layer-middle', label: 'Anneau central' },

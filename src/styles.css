@@ -2499,12 +2499,17 @@ select:focus {
 }
 
 .puzzle-stack {
+  cursor: grab;
   left: 50%;
+  margin-top: min(0.98vw, 4.5px);
   position: absolute;
-  top: 54%;
+  top: 50%;
+  touch-action: none;
   transform: translate(-50%, -50%);
-  width: min(75.3vw, 347px);
+  width: 75.26%;
 }
+
+.puzzle-stack:active { cursor: grabbing; }
 
 .puzzle-stack::before {
   content: '';
@@ -2516,14 +2521,14 @@ select:focus {
   appearance: none;
   background: transparent;
   border: 0;
-  cursor: pointer;
+  pointer-events: none;
   left: 50%;
   padding: 0;
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%) rotate(var(--turn, 0deg));
   transform-origin: center;
-  transition: transform 0.22s ease-out;
+  transition: transform 0.08s linear;
   -webkit-tap-highlight-color: transparent;
 }
 
