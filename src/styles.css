@@ -3022,19 +3022,58 @@ select:focus {
 }
 
 .garden-drawer-label {
-  background: none;
-  border: none;
+  align-items: center;
   color: var(--cream);
-  cursor: pointer;
+  display: flex;
   font-family: var(--font-display);
   font-size: 15px;
   font-weight: 700;
+  gap: 9px;
   letter-spacing: 1.5px;
+  opacity: 0.75;
   padding: 10px 14px;
+  transition: opacity 0.2s ease;
   white-space: nowrap;
 }
 
-.garden-drawer-label:disabled { cursor: default; opacity: 0.55; }
+.garden-drawer-label.is-holding { opacity: 1; }
+
+/* Ring around the leaf: fills over the two-second hold */
+.garden-ring {
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 32px;
+  position: relative;
+  width: 32px;
+}
+
+.garden-ring svg {
+  height: 100%;
+  transform: rotate(-90deg);
+  width: 100%;
+}
+
+.garden-ring-track {
+  fill: none;
+  stroke: rgba(242, 224, 184, 0.22);
+  stroke-width: 3;
+}
+
+.garden-ring-fill {
+  fill: none;
+  stroke: var(--warning);
+  stroke-linecap: round;
+  stroke-width: 3;
+}
+
+.garden-ring-leaf {
+  align-items: center;
+  display: flex;
+  font-size: 15px;
+  inset: 0;
+  justify-content: center;
+  position: absolute;
+}
 
 .garden-drawer-front {
   position: relative;
