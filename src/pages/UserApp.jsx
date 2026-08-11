@@ -251,13 +251,9 @@ export default function UserApp() {
   const [found, setFound] = useState(null);
   const foundHandledRef = useRef(false);
   const [scrollOpen, setScrollOpen] = useState(false);
-  // Jardin secret: keypad, then the garden itself. Staying unlocked is kept on
-  // the device so they don't retype the code every time.
+  // Jardin secret: the hold reveals a tiny pass lock, then the garden.
   const [gateOpen, setGateOpen] = useState(false);
   const [gardenOpen, setGardenOpen] = useState(false);
-  const [gardenUnlocked, setGardenUnlocked] = useState(
-    () => localStorage.getItem('olympe-garden') === '1'
-  );
   // Onboarding + persistent GPS state (survives reloads via localStorage).
   const [gpsOn, setGpsOn] = useState(() => localStorage.getItem('olympe-gps') === '1');
   const [ritualsDone, setRitualsDone] = useState(() => localStorage.getItem('olympe-rituals') === '1');
@@ -432,8 +428,6 @@ export default function UserApp() {
         <GardenGate
           onClose={() => setGateOpen(false)}
           onUnlock={() => {
-            localStorage.setItem('olympe-garden', '1');
-            setGardenUnlocked(true);
             setGateOpen(false);
             setGardenOpen(true);
           }}
@@ -471,7 +465,7 @@ export default function UserApp() {
             isAdmin={userRole === 'admin'}
             meUid={data?.me?.uid}
             onAdmin={() => navigate('/admin')}
-            onGarden={() => (gardenUnlocked ? setGardenOpen(true) : setGateOpen(true))}
+            onGarden={() => setGateOpen(true)}
             onLogout={handleLogout}
             onSecret={() => setScrollOpen(true)}
             seam={seam}

@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 
 // The team card slides sideways like a drawer, uncovering an identical box
 // behind it that reads "Jardin Secret". Let go and it springs shut. Keep it
-// held open for two seconds — a ring fills beside the leaf — and the keypad
+// held open for a short beat — a ring fills beside the leaf — and the keypad
 // appears on its own, so it never needs a second finger.
 const OPEN_RATIO = 0.78; // how far right the card can travel, as a share of its width
 const ARM_AT = 0.45; // the hold only counts once the drawer is this far out
-const HOLD_MS = 2000;
+const HOLD_MS = 1200;
 
 const RING_R = 13;
 const RING_C = 2 * Math.PI * RING_R;

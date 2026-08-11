@@ -3038,7 +3038,7 @@ select:focus {
 
 .garden-drawer-label.is-holding { opacity: 1; }
 
-/* Ring around the leaf: fills over the two-second hold */
+/* Ring around the leaf: fills over the short hold */
 .garden-ring {
   display: inline-flex;
   flex: 0 0 auto;
@@ -3107,55 +3107,60 @@ select:focus {
   z-index: 70;
 }
 
-.gate-card {
-  background: var(--clay-panel);
-  border-radius: 12px;
+.gate-lock {
+  background: rgba(242, 224, 184, 0.92);
+  border: 0;
+  border-radius: 10px;
   box-shadow: 0 0 0 2px var(--ink), 0 18px 50px rgba(0, 0, 0, 0.6);
-  color: var(--ink);
-  max-width: 320px;
-  padding: 24px 20px;
-  text-align: center;
+  cursor: text;
+  padding: 22px 20px;
+  position: relative;
+}
+
+.gate-lock.is-wrong { animation: gate-shake 0.4s ease; }
+
+.gate-squares {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.gate-square {
+  background: rgba(242, 224, 184, 0.7);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  box-shadow: inset 2px 3px 0 rgba(36, 22, 8, 0.1);
+  height: 44px;
+  width: 38px;
+}
+
+.gate-square.is-filled { background: var(--ink); }
+.gate-lock.is-wrong .gate-square { background: var(--oxide); border-color: var(--oxide); }
+
+.gate-input {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  caret-color: transparent;
+  color: transparent;
+  font-size: 16px;
+  height: 100%;
+  inset: 0;
+  opacity: 0.01;
+  padding: 0;
+  position: absolute;
   width: 100%;
 }
 
-.gate-icon { font-size: 34px; }
-.gate-title { font-family: var(--font-greek); font-size: 22px; letter-spacing: 2px; margin: 4px 0 0; }
-.gate-sub { color: var(--ink-muted); font-size: 13px; font-style: italic; margin: 4px 0 14px; }
-
-.gate-dots { display: flex; gap: 12px; justify-content: center; margin-bottom: 18px; }
-.gate-dots.is-wrong { animation: gate-shake 0.4s ease; }
-
-.gate-dot {
-  border: 2px solid var(--ink);
-  border-radius: 50%;
-  height: 14px;
-  width: 14px;
+.gate-input:focus {
+  box-shadow: none;
+  outline: none;
 }
-.gate-dot.is-filled { background: var(--ink); }
-.gate-dots.is-wrong .gate-dot { background: var(--oxide); border-color: var(--oxide); }
 
 @keyframes gate-shake {
   25% { transform: translateX(-7px); }
   75% { transform: translateX(7px); }
 }
-
-.gate-pad { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); }
-
-.gate-key {
-  background: var(--cream);
-  border: none;
-  border-radius: 8px;
-  box-shadow: var(--cut-line), 2px 3px 0 rgba(36, 22, 8, 0.3);
-  color: var(--ink);
-  cursor: pointer;
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 700;
-  padding: 12px 0;
-}
-
-.gate-key:active { box-shadow: var(--cut-line); transform: translate(2px, 2px); }
-.gate-key.is-ghost { background: rgba(36, 22, 8, 0.12); box-shadow: none; font-size: 16px; }
 
 /* --- the garden --------------------------------------------------------- */
 .garden-overlay {
@@ -3187,7 +3192,7 @@ select:focus {
 
 .garden-black-leaves {
   height: 100%;
-  top: 0;
+  top: -5%;
   z-index: 1;
 }
 
