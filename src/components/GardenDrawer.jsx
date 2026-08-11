@@ -131,7 +131,7 @@ export default function GardenDrawer({ children, onOpenGarden }) {
         onTouchStart={start}
         style={{ transform: `translateX(${offset}px)` }}
       >
-        {children}
+        <div className="garden-drawer-peek">{children}</div>
       </div>
     </div>
   );

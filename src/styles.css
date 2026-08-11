@@ -3086,6 +3086,24 @@ select:focus {
 
 .garden-drawer-front.is-dragging { transition: none; }
 
+.garden-drawer-peek {
+  animation: garden-peek 1.05s ease-out 0.45s both;
+  will-change: transform;
+}
+
+.garden-drawer-front.is-dragging .garden-drawer-peek {
+  animation: none;
+  transform: none;
+}
+
+@keyframes garden-peek {
+  0%, 100% { transform: translateX(0); }
+  28% { transform: translateX(14px); }
+  48% { transform: translateX(0); }
+  66% { transform: translateX(7px); }
+  82% { transform: translateX(0); }
+}
+
 .home-team-card {
   cursor: grab;
   font-family: inherit;
