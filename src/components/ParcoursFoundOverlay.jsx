@@ -22,14 +22,6 @@ export default function ParcoursFoundOverlay({ found, onClose }) {
                 : `Ariane déroule le fil vers : ${found.nextName || 'le lieu suivant'}`}
             </p>
           </>
-        ) : found.wrongTag ? (
-          <>
-            <span className="found-icon">🚫</span>
-            <h2 className="found-title">Ce n’est pas ton lieu</h2>
-            <p className="found-sub">
-              Ce tag est celui de « {found.name} ». Suis ta flèche jusqu’au tien !
-            </p>
-          </>
         ) : found.alreadyFound ? (
           <>
             <span className="found-icon">✅</span>
@@ -48,17 +40,17 @@ export default function ParcoursFoundOverlay({ found, onClose }) {
             <h2 className="found-title">Aucune chasse en cours</h2>
             <p className="found-sub">Le Fil d’Ariane n’est pas actif pour l’instant.</p>
           </>
-        ) : found.unknown ? (
+        ) : found.tooFar ? (
           <>
-            <span className="found-icon">?</span>
-            <h2 className="found-title">Tag inconnu</h2>
-            <p className="found-sub">Ce tag ne fait pas partie du jeu.</p>
+            <span className="found-icon">🧭</span>
+            <h2 className="found-title">Encore un peu</h2>
+            <p className="found-sub">Approche-toi du lieu pour valider.</p>
           </>
         ) : (
           <>
             <span className="found-icon">⚠️</span>
             <h2 className="found-title">Validation impossible</h2>
-            <p className="found-sub">Réessaie en touchant le tag à nouveau.</p>
+            <p className="found-sub">Réessaie quand le GPS est stable.</p>
           </>
         )}
         <button className="btn btn-primary" onClick={onClose} type="button">

@@ -78,11 +78,9 @@ export default function GuideChallenge({ user, challenge, refresh }) {
   const warmth = distance != null ? warmthFor(distance) : null;
   const arrowRotation = heading != null && bearing != null ? bearing - heading : null;
 
-  // Auto-arrival: fire once when inside the radius. Skipped when the admin
-  // requires an NFC tap — then arrival is registered only by touching the tag.
+  // Auto-arrival: fire once when inside the radius.
   useEffect(() => {
     if (
-      challenge.nfcRequired ||
       !challenge.running ||
       challenge.arrived ||
       arrivingRef.current ||
@@ -154,9 +152,6 @@ export default function GuideChallenge({ user, challenge, refresh }) {
                   <div className="compass-cardinal">{bearing != null ? cardinalFr(bearing) : '…'}</div>
                 )}
                 <div className="compass-distance">{formatDistance(distance)}</div>
-                {challenge.nfcRequired && distance <= challenge.radiusM * NEAR_FACTOR && (
-                  <div className="compass-nfc-hint">📲 Touche le tag pour valider !</div>
-                )}
               </>
             ) : (
               <div className="compass-waiting">

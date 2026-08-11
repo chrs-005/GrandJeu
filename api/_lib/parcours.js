@@ -1,16 +1,6 @@
 // Le Fil d'Ariane — the persistent location hunt (not a challenge).
 // Each team walks its own rotation of the same destinations. Reaching one is
-// proven by tapping its NFC tag, which unlocks the walking route to the next.
-
-const TOKEN_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789'; // no look-alikes
-
-export function makeToken(length = 6) {
-  let out = '';
-  for (let i = 0; i < length; i++) {
-    out += TOKEN_ALPHABET[Math.floor(Math.random() * TOKEN_ALPHABET.length)];
-  }
-  return out;
-}
+// validated by GPS, which unlocks the walking route to the next.
 
 // Same stops for everyone, rotated start per team, so teams spread out
 // instead of trailing each other.
@@ -21,12 +11,6 @@ export function buildSequences(destIds, teamUids) {
     sequences[uid] = destIds.map((_, i) => destIds[(offset + i) % destIds.length]);
   });
   return sequences;
-}
-
-export function findDestinationByToken(parcours, token) {
-  const clean = String(token || '').trim().toLowerCase();
-  if (!clean) return null;
-  return (parcours.destinations || []).find((d) => d.token === clean) || null;
 }
 
 export function currentDestId(parcours, uid) {
@@ -106,7 +90,6 @@ export function buildParcoursAdminView(parcours) {
     destinations: (parcours.destinations || []).map((d) => ({
       id: d.id,
       name: d.name,
-      token: d.token,
       points: d.points,
       lat: d.lat,
       lng: d.lng,

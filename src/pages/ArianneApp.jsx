@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useGame } from '../hooks/useGame';
-import { gameAction } from '../services/api';
 import { SCENE_LINES } from '../config/sceneConfig';
 import ParcoursScreen from '../components/ParcoursScreen';
 import ParcoursFoundOverlay from '../components/ParcoursFoundOverlay';
 
-function FilPage({ currentUser, data, refresh }) {
+function FilPage({ currentUser, data, refresh, onFound }) {
   const parcours = data?.parcours;
   const seam = SCENE_LINES.parcours ?? 53;
 
@@ -16,7 +15,7 @@ function FilPage({ currentUser, data, refresh }) {
       <div className="challenge-header challenge-scene" />
       <div className="challenge-body">
         {parcours?.active ? (
-          <ParcoursScreen parcours={parcours} refresh={refresh} user={currentUser} />
+          <ParcoursScreen onFound={onFound} parcours={parcours} refresh={refresh} user={currentUser} />
         ) : (
           <div className="arianne-empty">
             <span className="found-icon">🧵</span>
@@ -52,23 +51,6 @@ export default function ArianneApp() {
   const { data, error, refresh } = useGame(currentUser);
   const [tab, setTab] = useState('fil');
   const [found, setFound] = useState(null);
-  const foundHandledRef = useRef(false);
-
-  useEffect(() => {
-    if (foundHandledRef.current || !currentUser) return;
-    const token = localStorage.getItem('olympe-pending-found');
-    if (!token) return;
-    foundHandledRef.current = true;
-    localStorage.removeItem('olympe-pending-found');
-    setTab('fil');
-
-    gameAction(currentUser, 'parcours-found', { token })
-      .then((result) => {
-        setFound(result);
-        refresh();
-      })
-      .catch(() => setFound({ error: true }));
-  }, [currentUser, refresh]);
 
   async function handleLogout() {
     await logout();
@@ -84,7 +66,7 @@ export default function ArianneApp() {
         {tab === 'puzzle' ? (
           <PuzzlePage />
         ) : (
-          <FilPage currentUser={currentUser} data={data} refresh={refresh} />
+          <FilPage currentUser={currentUser} data={data} onFound={setFound} refresh={refresh} />
         )}
       </div>
 

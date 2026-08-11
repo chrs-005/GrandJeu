@@ -21,7 +21,6 @@ import {
 } from './_lib/defis.js';
 import {
   buildParcoursView,
-  findDestinationByToken,
   currentDestId,
   destinationById,
 } from './_lib/parcours.js';
@@ -29,6 +28,7 @@ import {
 // Drawings/photos are immutable once submitted, so cache media reads (guess phase).
 const mediaCache = new Map(); // `${challengeId}:${uid}` -> { data, ts }
 const MEDIA_CACHE_TTL = 60_000;
+const PARCOURS_ARRIVAL_M = 35;
 
 async function loadMedia(db, challengeId, uid) {
   const key = `${challengeId}:${uid}`;
@@ -172,7 +172,6 @@ async function buildChallengeView(db, challenge, uid) {
         targetLat: config.lat,
         targetLng: config.lng,
         radiusM: config.radiusM,
-        nfcRequired: Boolean(config.nfcRequired),
         arrived: own?.arrivedAtMs
           ? { atMs: own.arrivedAtMs, rank: own.rank, points: own.points || 0 }
           : null,
@@ -488,10 +487,8 @@ async function handlePost(req, res) {
 
     // -- guide (compass hunt) -----------------------------------------------------
     case 'arrive': {
-      // `viaNfc` = the team physically tapped the NFC tag at the destination,
-      // which is proof enough on its own (no GPS distance check needed).
-      const { latitude, longitude, accuracy, viaNfc } = body;
-      if (!viaNfc && (typeof latitude !== 'number' || typeof longitude !== 'number')) {
+      const { latitude, longitude, accuracy } = body;
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
         return sendError(res, 400, 'Position invalide.');
       }
       const ref = db.collection('challenges').doc(String(body.challengeId || ''));
@@ -507,18 +504,16 @@ async function handlePost(req, res) {
           return { alreadyArrived: true, rank: previous.rank, points: previous.points || 0 };
         }
         const cfg = challenge.config;
-        if (!viaNfc) {
-          const distance = haversineMeters(latitude, longitude, cfg.lat, cfg.lng);
-          const tolerance = Math.min(Math.max(Number(accuracy) || 0, 10), 30);
-          if (distance > cfg.radiusM + tolerance) {
-            return { tooFar: true, distance: Math.round(distance) };
-          }
+        const distance = haversineMeters(latitude, longitude, cfg.lat, cfg.lng);
+        const tolerance = Math.min(Math.max(Number(accuracy) || 0, 10), 30);
+        if (distance > cfg.radiusM + tolerance) {
+          return { tooFar: true, distance: Math.round(distance) };
         }
         const rank = Object.values(challenge.board || {}).filter((e) => e.arrivedAtMs).length + 1;
         const rankPoints = cfg.rankPoints || [];
         const points = rankPoints[rank - 1] || 0;
         tx.update(ref, {
-          [`board.${uid}`]: { username, arrivedAtMs: now, rank, points, viaNfc: Boolean(viaNfc) },
+          [`board.${uid}`]: { username, arrivedAtMs: now, rank, points },
         });
         return { arrived: true, rank, points };
       });
@@ -627,9 +622,13 @@ async function handlePost(req, res) {
     }
 
     // -- parcours (Le Fil d'Ariane) -------------------------------------------------
-    // NFC tag tapped at a destination: validate it's THIS team's current stop,
-    // award it, then compute the walking route to their next one.
-    case 'parcours-found': {
+    // GPS arrival at the current destination: award it, then compute the
+    // walking route to the next one.
+    case 'parcours-arrive': {
+      const { latitude, longitude, accuracy } = body;
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+        return sendError(res, 400, 'Position invalide.');
+      }
       const ref = db.collection('gameState').doc('parcours');
       const outcome = await db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
@@ -637,19 +636,18 @@ async function handlePost(req, res) {
         const parcours = snap.data();
         if (!parcours.active) return { inactive: true };
 
-        const dest = findDestinationByToken(parcours, body.token);
-        if (!dest) return { unknown: true };
-
         const sequence = parcours.sequences?.[uid] || [];
         const progress = parcours.progress?.[uid] || { index: 0, found: [] };
         const index = progress.index ?? 0;
         if (index >= sequence.length) return { done: true };
 
-        if (sequence[index] !== dest.id) {
-          const already = (progress.found || []).some((f) => f.destId === dest.id);
-          return already
-            ? { alreadyFound: true, name: dest.name }
-            : { wrongTag: true, name: dest.name };
+        const dest = destinationById(parcours, sequence[index]);
+        if (!dest) return { done: true };
+
+        const distance = haversineMeters(latitude, longitude, dest.lat, dest.lng);
+        const tolerance = Math.min(Math.max(Number(accuracy) || 0, 10), 30);
+        if (distance > PARCOURS_ARRIVAL_M + tolerance) {
+          return { tooFar: true, distance: Math.round(distance), name: dest.name };
         }
 
         // Rank = how many teams reached this destination before us.
@@ -676,7 +674,7 @@ async function handlePost(req, res) {
           name: dest.name,
           points,
           rank,
-          from: { lat: dest.lat, lng: dest.lng },
+          from: { lat: latitude, lng: longitude },
           nextDestId,
           nextName: nextDestId ? destinationById(parcours, nextDestId)?.name || null : null,
           finished: !nextDestId,
@@ -693,7 +691,7 @@ async function handlePost(req, res) {
         await addPoints(db, uid, username, outcome.points, `Fil d’Ariane — ${outcome.name}`);
       }
 
-      // They're standing on the tag, so the next leg starts exactly here.
+      // The next leg starts from their current GPS position.
       if (outcome.nextDestId) {
         const fresh = (await ref.get()).data();
         const next = destinationById(fresh, outcome.nextDestId);

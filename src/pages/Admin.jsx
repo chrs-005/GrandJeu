@@ -106,7 +106,6 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
   const [guideCoords, setGuideCoords] = useState('');
   const [guideRadius, setGuideRadius] = useState(30);
   const [guideMinutes, setGuideMinutes] = useState(30);
-  const [guideNfc, setGuideNfc] = useState(false);
 
   // Pin can come from a map tap or pasted "lat, lng" coordinates — keep both in sync.
   function pickGuidePin(latlng) {
@@ -171,7 +170,6 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
           lat: guidePin?.lat,
           lng: guidePin?.lng,
           radiusM: Number(guideRadius),
-          nfcRequired: guideNfc,
           durationSeconds: Number(guideMinutes) * 60,
         });
       case 'territory':
@@ -345,16 +343,6 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
             Durée (minutes)
             <input min="1" max="240" onChange={(e) => setGuideMinutes(e.target.value)} type="number" value={guideMinutes} />
           </label>
-          <label className="toggle-images">
-            <input checked={guideNfc} onChange={(e) => setGuideNfc(e.target.checked)} type="checkbox" />
-            Valider l’arrivée par tag NFC (au lieu du GPS)
-          </label>
-          {guideNfc && (
-            <p className="form-hint">
-              📲 Programme le tag avec cette adresse :<br />
-              <code>{window.location.origin}/app?found=guide</code>
-            </p>
-          )}
           <p className="form-hint">Points à l’arrivée : {RANK_POINTS.join(' / ')} (ordre d’arrivée).</p>
         </div>
       )}
@@ -625,7 +613,7 @@ function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
 }
 
 // ---------------------------------------------------------------------------
-// Le Fil d'Ariane — destinations, NFC tokens, live team progress
+// Le Fil d'Ariane — destinations and live team progress
 // ---------------------------------------------------------------------------
 function ParcoursAdmin({ parcours, locations, teams, busy, onAction }) {
   const nameByUid = useMemo(
@@ -634,7 +622,6 @@ function ParcoursAdmin({ parcours, locations, teams, busy, onAction }) {
   );
   const [draft, setDraft] = useState(() => parcours?.destinations || []);
   const [dirty, setDirty] = useState(false);
-  const origin = window.location.origin;
 
   // Adopt server state until the admin starts editing (avoids clobbering typing).
   useEffect(() => {
@@ -687,7 +674,7 @@ function ParcoursAdmin({ parcours, locations, teams, busy, onAction }) {
     <div className="parcours-admin">
       <p className="form-hint">
         🧵 Touchez la carte pour ajouter un lieu. Chaque équipe visite tous les lieux, mais dans un
-        ordre décalé. Le tag NFC d’un lieu débloque le chemin vers le suivant.
+        ordre décalé. Arriver sur place débloque le chemin vers le suivant.
       </p>
 
       <SatMap
@@ -739,11 +726,6 @@ function ParcoursAdmin({ parcours, locations, teams, busy, onAction }) {
             type="text"
             value={dest.hint || ''}
           />
-          {dest.token && (
-            <p className="dest-token">
-              🏷️ Tag NFC : <code>{`${origin}/app?found=${dest.token}`}</code>
-            </p>
-          )}
         </div>
       ))}
 
@@ -764,7 +746,7 @@ function ParcoursAdmin({ parcours, locations, teams, busy, onAction }) {
           className="btn btn-danger btn-sm"
           disabled={busy}
           onClick={() => {
-            if (window.confirm('Remettre toutes les équipes au premier lieu ? (les tags restent valides)')) {
+            if (window.confirm('Remettre toutes les équipes au premier lieu ?')) {
               onAction('parcours-reset', {}, 'Progression remise à zéro.');
             }
           }}

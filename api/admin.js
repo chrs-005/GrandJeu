@@ -11,7 +11,7 @@ import {
   withErrorHandling,
 } from './_lib/core.js';
 import { territoryAreas, SEED_RADIUS_M } from './_lib/territory.js';
-import { makeToken, buildSequences, buildParcoursAdminView } from './_lib/parcours.js';
+import { buildSequences, buildParcoursAdminView } from './_lib/parcours.js';
 import {
   loadSheetChallenges,
   loadDefisState,
@@ -172,7 +172,6 @@ function buildChallenge(type, cfg, teamUids) {
           lat,
           lng,
           radiusM: num(cfg.radiusM, 30, 10, 500),
-          nfcRequired: Boolean(cfg.nfcRequired),
           rankPoints: Array.isArray(cfg.rankPoints) && cfg.rankPoints.length
             ? cfg.rankPoints.map((p) => num(p, 0, 0, 1000))
             : DEFAULT_RANK_POINTS,
@@ -604,15 +603,10 @@ async function handlePost(req, res, verified) {
     }
 
     // -- Le Fil d'Ariane (parcours) --------------------------------------------
-    // Saving keeps the token of any destination that already has one, so tags
-    // already written and stuck in the field stay valid.
     case 'parcours-setup': {
       const teamsMap = await ensureScoresDoc(db);
       const teamUids = Object.keys(teamsMap);
       const ref = db.collection('gameState').doc('parcours');
-      const existing = (await ref.get()).data() || {};
-      const previous = new Map((existing.destinations || []).map((d) => [d.id, d]));
-
       const destinations = (body.destinations || [])
         .map((d, i) => {
           const name = String(d.name || '').trim().slice(0, 80);
@@ -627,7 +621,6 @@ async function handlePost(req, res, verified) {
             lng,
             hint: String(d.hint || '').trim().slice(0, 200) || null,
             points: num(d.points, 100, 0, 1000),
-            token: previous.get(id)?.token || makeToken(),
           };
         })
         .filter(Boolean);
@@ -677,7 +670,7 @@ async function handlePost(req, res, verified) {
       return res.status(200).json({ ok: true });
     }
 
-    // Wipe progress but keep destinations and their (already printed) tokens.
+    // Wipe progress but keep destinations.
     case 'parcours-reset': {
       const ref = db.collection('gameState').doc('parcours');
       const snap = await ref.get();

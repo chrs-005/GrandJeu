@@ -7,7 +7,7 @@ import { followRoute, cardinalFr, formatDistance, warmthFor } from '../utils/geo
 const WAY_OFF_M = 150; // must be REALLY off the path
 const WAY_OFF_SUSTAIN_MS = 10_000; // …and stay off for this long (not a GPS blip)
 const RECOMPUTE_COOLDOWN_MS = 90_000;
-const ARRIVAL_M = 30; // "you're there, hunt for the tag"
+const ARRIVAL_M = 30; // close enough to complete this stop
 
 function needsCompassPermission() {
   return (
@@ -16,7 +16,7 @@ function needsCompassPermission() {
   );
 }
 
-export default function ParcoursScreen({ user, parcours, refresh }) {
+export default function ParcoursScreen({ user, parcours, refresh, onFound }) {
   const [pos, setPos] = useState(null);
   const [heading, setHeading] = useState(null);
   const [compassOn, setCompassOn] = useState(false);
@@ -26,6 +26,7 @@ export default function ParcoursScreen({ user, parcours, refresh }) {
   const [rerouted, setRerouted] = useState(false);
   const lastRouteReqRef = useRef(0);
   const wayOffSinceRef = useRef(0);
+  const arrivingRef = useRef(false);
 
   // The poll hands back a fresh array each time; key it so identity is stable.
   const routeKey = parcours.route?.length
@@ -37,6 +38,7 @@ export default function ParcoursScreen({ user, parcours, refresh }) {
   // New leg → start from the first breadcrumb again.
   useEffect(() => {
     setTargetIdx(0);
+    arrivingRef.current = false;
   }, [routeKey]);
 
   // GPS watch drives everything on this screen.
@@ -170,6 +172,28 @@ export default function ParcoursScreen({ user, parcours, refresh }) {
   const arrowRotation = heading != null && nav ? nav.bearing - heading : null;
   const arrived = nav && nav.atEnd && nav.toTarget <= ARRIVAL_M;
 
+  useEffect(() => {
+    if (!arrived || !pos || arrivingRef.current || parcours.done) return;
+    arrivingRef.current = true;
+    gameAction(user, 'parcours-arrive', {
+      latitude: pos.lat,
+      longitude: pos.lng,
+      accuracy: pos.accuracy,
+    })
+      .then((result) => {
+        if (!result.found && !result.alreadyFound && !result.done) {
+          arrivingRef.current = false;
+          if (result.tooFar) setError(`Encore ${formatDistance(result.distance)}.`);
+        }
+        if (result.found || result.alreadyFound || result.done) onFound?.(result);
+        refresh();
+      })
+      .catch(() => {
+        arrivingRef.current = false;
+        setError('Impossible de valider le lieu.');
+      });
+  }, [arrived, pos, parcours.done, user, refresh, onFound]);
+
   return (
     <div className="parcours-screen">
       <div className="parcours-head">
@@ -217,7 +241,7 @@ export default function ParcoursScreen({ user, parcours, refresh }) {
         )}
 
         {nav && !arrived && <div className="compass-distance">{formatDistance(nav.remaining)}</div>}
-        {arrived && <div className="compass-nfc-hint">Tu y es ! Cherche le tag et touche-le 📲</div>}
+        {arrived && <div className="compass-arrival-hint">Tu y es ! Ariane noue le fil...</div>}
       </div>
 
       {!compassOn && (
