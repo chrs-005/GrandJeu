@@ -25,10 +25,12 @@ function spriteWidthPct(nativeW) {
   return ((nativeW * SCALE) / ART_W) * 100;
 }
 
-export default function SecretGarden({ onClose }) {
+export default function SecretGarden({ onClose, measure: showMeasure = false }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
   const [canvas, setCanvas] = useState({ w: 0, h: 0, left: 0, top: 0 });
+  // Usable box on THIS device, so the artwork can be authored to fill it.
+  const [box, setBox] = useState({ w: 0, h: 0, dpr: 1 });
   const [pos, setPos] = useState(() =>
     Object.fromEntries(SPRITES.map((s) => [s.id, { x: s.x, y: s.y }]))
   );
@@ -46,6 +48,7 @@ export default function SecretGarden({ onClose }) {
     const w = ART_W * scale;
     const h = ART_H * scale;
     setCanvas({ w, h, left: (width - w) / 2, top: (height - h) / 2 });
+    setBox({ w: width, h: height, dpr: window.devicePixelRatio || 1 });
   }, []);
 
   useEffect(() => {
@@ -128,6 +131,16 @@ export default function SecretGarden({ onClose }) {
         {/* Painted bar sits above everything, so the sprites emerge from under it */}
         <img alt="" className="garden-bar" src={bottomBar} />
       </div>
+
+      {showMeasure && box.w > 0 && (
+        <div className="garden-measure">
+          {`zone utile : ${Math.round(box.w)} x ${Math.round(box.h)} pt
+ratio        : ${(box.w / box.h).toFixed(4)}
+a dessiner   : ${Math.round(box.w * box.dpr)} x ${Math.round(box.h * box.dpr)} px  (@${box.dpr}x)
+art actuel   : 768 x 1376  (ratio ${(ART_W / ART_H).toFixed(4)})
+bandes       : ${Math.round(box.h - canvas.h)} pt en haut+bas`}
+        </div>
+      )}
 
       <button className="garden-close" onClick={onClose} type="button">
         ✕

@@ -3159,16 +3159,32 @@ select:focus {
 
 /* --- the garden --------------------------------------------------------- */
 .garden-overlay {
-  background: #171009;
-  bottom: 0;
+  /* Matches the artwork's own border, so any letterbox band is invisible */
+  background: #1a1a16;
+  /* Clear the notch/Dynamic Island above and the home indicator below */
+  bottom: var(--device-safe-bottom);
   left: 0;
   overflow: hidden;
   position: fixed;
   right: 0;
-  /* Clear the notch/Dynamic Island like every other page */
   top: var(--device-safe-top);
   touch-action: none;
   z-index: 75;
+}
+
+.garden-measure {
+  background: rgba(180, 30, 30, 0.92);
+  border-radius: 8px;
+  color: #fff;
+  font-family: monospace;
+  font-size: 11px;
+  left: 8px;
+  line-height: 1.5;
+  padding: 6px 9px;
+  position: absolute;
+  top: 8px;
+  white-space: pre;
+  z-index: 6;
 }
 
 .garden-canvas { position: absolute; }
