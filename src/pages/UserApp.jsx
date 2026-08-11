@@ -21,7 +21,6 @@ import SceneTuner from '../components/SceneTuner';
 import ParcoursScreen from '../components/ParcoursScreen';
 import DefisScreen from '../components/DefisScreen';
 import SecretOwl from '../components/SecretOwl';
-import SecretScroll from '../components/SecretScroll';
 import GardenDrawer from '../components/GardenDrawer';
 import GardenGate from '../components/GardenGate';
 import SecretGarden from '../components/SecretGarden';
@@ -51,6 +50,7 @@ function isStandalone() {
 }
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+const OWL_MAP_URL = 'https://maps.app.goo.gl/2FK2KBe7kycKC3R18?g_st=iw';
 
 // Home tab: team card + Mount Olympus leaderboard floating on the temple
 // artboard (design's "HOME — MOUNT OLYMPUS"). One fixed screen, no scroll.
@@ -58,14 +58,9 @@ function HomeScreen({
   info, teams, meUid, isAdmin, onAdmin, onLogout, seam, secret, onSecret, tuning, owlDebug, onGarden,
   gardenPeekSignal,
 }) {
-  // Once the owl has delivered the scroll the artboard stays on the end frame.
-  // The server remembers the discovery, so it survives a reload/reinstall.
-  const [justRevealed, setJustRevealed] = useState(false);
-  const revealed = justRevealed || Boolean(secret?.found);
-
   return (
     <section
-      className={`challenge-shell home-screen ${revealed ? 'is-owl-revealed' : ''}`}
+      className="challenge-shell home-screen"
       style={seam ? { '--seam': `${seam}%` } : undefined}
     >
       <div className="home-scene">
@@ -76,8 +71,6 @@ function HomeScreen({
             armed={Boolean(secret?.active)}
             debug={owlDebug}
             onOpen={onSecret}
-            onRevealed={() => setJustRevealed(true)}
-            revealed={revealed}
             tuning={tuning}
           />
         )}
@@ -253,7 +246,6 @@ export default function UserApp() {
   // NFC "found" celebration ({ ok, rank, points, already, none, error }).
   const [found, setFound] = useState(null);
   const foundHandledRef = useRef(false);
-  const [scrollOpen, setScrollOpen] = useState(false);
   // Jardin secret: the hold reveals a tiny pass lock, then the garden.
   const [gateOpen, setGateOpen] = useState(false);
   const [gardenOpen, setGardenOpen] = useState(false);
@@ -292,6 +284,14 @@ export default function UserApp() {
   function completeRituals() {
     localStorage.setItem('olympe-rituals', '1');
     setRitualsDone(true);
+  }
+
+  function openOwlMap() {
+    const opened = window.open(OWL_MAP_URL, '_blank', 'noopener,noreferrer');
+    if (!opened) window.location.href = OWL_MAP_URL;
+    gameAction(currentUser, 'secret-open', {})
+      .then(refresh)
+      .catch(() => {});
   }
 
   const username = data?.me?.username || currentUser?.email?.split('@')[0] || '';
@@ -430,10 +430,6 @@ export default function UserApp() {
 
       {error && <div className="alert alert-error toast-error">{error}</div>}
 
-      {scrollOpen && (
-        <SecretScroll onClose={() => setScrollOpen(false)} onSolved={refresh} user={currentUser} />
-      )}
-
       {gateOpen && (
         <GardenGate
           onClose={() => setGateOpen(false)}
@@ -478,7 +474,7 @@ export default function UserApp() {
             onAdmin={() => navigate('/admin')}
             onGarden={() => setGateOpen(true)}
             onLogout={handleLogout}
-            onSecret={() => setScrollOpen(true)}
+            onSecret={openOwlMap}
             seam={seam}
             owlDebug={owlDebug}
             secret={data?.secret}
