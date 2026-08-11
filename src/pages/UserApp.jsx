@@ -22,6 +22,8 @@ import ParcoursScreen from '../components/ParcoursScreen';
 import DefisScreen from '../components/DefisScreen';
 import SecretOwl from '../components/SecretOwl';
 import SecretScroll from '../components/SecretScroll';
+import GardenGate from '../components/GardenGate';
+import SecretGarden from '../components/SecretGarden';
 import StepsChallenge from '../components/challenges/StepsChallenge';
 import TriviaChallenge from '../components/challenges/TriviaChallenge';
 import PhotoChallenge from '../components/challenges/PhotoChallenge';
@@ -52,12 +54,14 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 // Home tab: team card + Mount Olympus leaderboard floating on the temple
 // artboard (design's "HOME — MOUNT OLYMPUS"). One fixed screen, no scroll.
 function HomeScreen({
-  info, teams, meUid, isAdmin, onAdmin, onLogout, seam, secret, onSecret, tuning, owlDebug,
+  info, teams, meUid, isAdmin, onAdmin, onLogout, seam, secret, onSecret, tuning, owlDebug, onGarden,
 }) {
   // Once the owl has delivered the scroll the artboard stays on the end frame.
   // The server remembers the discovery, so it survives a reload/reinstall.
   const [justRevealed, setJustRevealed] = useState(false);
   const revealed = justRevealed || Boolean(secret?.found);
+  // Tapping the team card whispers that a hidden garden exists.
+  const [gardenHint, setGardenHint] = useState(false);
 
   return (
     <section
@@ -77,12 +81,23 @@ function HomeScreen({
             tuning={tuning}
           />
         )}
-        <div className="home-team-card">
-          <span className="app-emblem">{info.emblem}</span>
-          <div className="home-team-meta">
-            <strong>{info.title}</strong>
-            <span>Sous la protection de {info.god}</span>
-          </div>
+        <div className="home-team-block">
+          <button
+            className="home-team-card"
+            onClick={() => setGardenHint((v) => !v)}
+            type="button"
+          >
+            <span className="app-emblem">{info.emblem}</span>
+            <div className="home-team-meta">
+              <strong>{info.title}</strong>
+              <span>Sous la protection de {info.god}</span>
+            </div>
+          </button>
+          {gardenHint && (
+            <button className="garden-tease" onClick={onGarden} type="button">
+              🌿 jardin secret
+            </button>
+          )}
         </div>
       </div>
 
@@ -246,6 +261,13 @@ export default function UserApp() {
   const [found, setFound] = useState(null);
   const foundHandledRef = useRef(false);
   const [scrollOpen, setScrollOpen] = useState(false);
+  // Jardin secret: keypad, then the garden itself. Staying unlocked is kept on
+  // the device so they don't retype the code every time.
+  const [gateOpen, setGateOpen] = useState(false);
+  const [gardenOpen, setGardenOpen] = useState(false);
+  const [gardenUnlocked, setGardenUnlocked] = useState(
+    () => localStorage.getItem('olympe-garden') === '1'
+  );
   // Onboarding + persistent GPS state (survives reloads via localStorage).
   const [gpsOn, setGpsOn] = useState(() => localStorage.getItem('olympe-gps') === '1');
   const [ritualsDone, setRitualsDone] = useState(() => localStorage.getItem('olympe-rituals') === '1');
@@ -416,6 +438,19 @@ export default function UserApp() {
         <SecretScroll onClose={() => setScrollOpen(false)} onSolved={refresh} user={currentUser} />
       )}
 
+      {gateOpen && (
+        <GardenGate
+          onClose={() => setGateOpen(false)}
+          onUnlock={() => {
+            localStorage.setItem('olympe-garden', '1');
+            setGardenUnlocked(true);
+            setGateOpen(false);
+            setGardenOpen(true);
+          }}
+        />
+      )}
+      {gardenOpen && <SecretGarden onClose={() => setGardenOpen(false)} />}
+
       <div className="app-view">
         {onChallengeTab ? (
           <ChallengeShell challenge={challenge} now={now} seam={seam}>
@@ -446,6 +481,7 @@ export default function UserApp() {
             isAdmin={userRole === 'admin'}
             meUid={data?.me?.uid}
             onAdmin={() => navigate('/admin')}
+            onGarden={() => (gardenUnlocked ? setGardenOpen(true) : setGateOpen(true))}
             onLogout={handleLogout}
             onSecret={() => setScrollOpen(true)}
             seam={seam}
