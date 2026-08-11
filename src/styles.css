@@ -3170,6 +3170,7 @@ select:focus {
 .garden-canvas { position: absolute; }
 
 .garden-bg,
+.garden-black-leaves,
 .garden-bar {
   left: 0;
   pointer-events: none;
@@ -3183,10 +3184,17 @@ select:focus {
   height: auto;
   z-index: 1;
 }
+
+.garden-black-leaves {
+  height: 100%;
+  top: 0;
+  z-index: 1;
+}
+
 /* Painted bar rides above the sprites, so they emerge from under it */
 .garden-bar {
   bottom: 0;
-  height: 100%;
+  height: auto;
   z-index: 3;
 }
 

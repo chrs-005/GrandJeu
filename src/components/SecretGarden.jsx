@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import bgGame from '../assets/bg-game.png';
+import blackLeaves from '../assets/black-unmovable-leaves.png';
 import bottomBar from '../assets/bottom-bar.png';
 import top1 from '../assets/top1-trans.png';
 import top2 from '../assets/top2-trans.png';
 
 // Le Jardin Secret — hidden behind the team card on the home screen.
 //
-// Everything is laid out inside a "canvas" that is exactly the background
-// image's rendered box (cover-fitted to the screen). Positions and sizes are
-// then percentages of that box, so the sprites keep their exact relationship
-// to the painting on every phone.
-const ART_W = 768;
-const ART_H = 1376;
+// The black silhouettes and movable leaves share this coordinate system. It
+// is fitted by width and bottom-aligned, independently of the taller backdrop,
+// so every leaf stays visible on every phone without creating side borders.
+const ART_W = 779;
+const ART_H = 1306;
+const ART_SCREEN_WIDTH = 0.94;
 
 // The sprites are shown at exactly 18.5% of their native pixel size, expressed
 // as a share of the artwork's width so the ratio survives any screen size.
@@ -35,17 +36,17 @@ export default function SecretGarden({ onClose }) {
   const [moved, setMoved] = useState(false);
   const dragRef = useRef(null);
 
-  // Cover-fit the logical artwork box to the screen, then measure it so
-  // children keep the original game scale on every phone.
+  // Give the leaf layer a small, consistent side gutter and anchor it to the
+  // bottom. The extra-tall background fills everything above it separately.
   const measure = useCallback(() => {
     const el = wrapRef.current;
     if (!el) return;
     const { width, height } = el.getBoundingClientRect();
     if (!width || !height) return;
-    const scale = Math.max(width / ART_W, height / ART_H);
+    const scale = (width * ART_SCREEN_WIDTH) / ART_W;
     const w = ART_W * scale;
     const h = ART_H * scale;
-    setCanvas({ w, h, left: (width - w) / 2, top: (height - h) / 2 });
+    setCanvas({ w, h, left: (width - w) / 2, top: height - h });
   }, []);
 
   useEffect(() => {
@@ -73,9 +74,12 @@ export default function SecretGarden({ onClose }) {
       const dy = ((point.clientY - drag.startY) / canvas.h) * 100;
       setPos((prev) => ({
         ...prev,
-        // Keep a sliver on screen so a sprite can never be lost off-canvas.
+        // Keep each movable leaf completely inside the horizontal safe layer.
         [drag.id]: {
-          x: Math.min(95, Math.max(-45, drag.origin.x + dx)),
+          x: Math.min(
+            100 - spriteWidthPct(SPRITES.find((sprite) => sprite.id === drag.id).nativeW),
+            Math.max(0, drag.origin.x + dx)
+          ),
           y: Math.min(98, Math.max(-45, drag.origin.y + dy)),
         },
       }));
@@ -100,12 +104,14 @@ export default function SecretGarden({ onClose }) {
 
   return (
     <div className="garden-overlay" ref={wrapRef}>
+      <img alt="" className="garden-bg" src={bgGame} />
+
       <div
         className="garden-canvas"
         ref={canvasRef}
         style={{ width: canvas.w, height: canvas.h, left: canvas.left, top: canvas.top }}
       >
-        <img alt="" className="garden-bg" src={bgGame} />
+        <img alt="" className="garden-black-leaves" src={blackLeaves} />
 
         {SPRITES.map((sprite) => (
         /* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */
@@ -125,9 +131,10 @@ export default function SecretGarden({ onClose }) {
           />
         ))}
 
-        {/* Painted bar sits above everything, so the sprites emerge from under it */}
-        <img alt="" className="garden-bar" src={bottomBar} />
       </div>
+
+      {/* Painted bar sits above everything, so the sprites emerge from under it */}
+      <img alt="" className="garden-bar" src={bottomBar} />
 
       <button className="garden-close" onClick={onClose} type="button">
         ✕
