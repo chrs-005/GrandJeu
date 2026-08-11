@@ -3087,8 +3087,11 @@ select:focus {
 .garden-drawer-front.is-dragging { transition: none; }
 
 .garden-drawer-peek {
-  animation: garden-peek 1.05s ease-out 0.45s both;
   will-change: transform;
+}
+
+.garden-drawer-peek.is-peeking {
+  animation: garden-peek 1.05s ease-out both;
 }
 
 .garden-drawer-front.is-dragging .garden-drawer-peek {

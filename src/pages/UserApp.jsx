@@ -56,6 +56,7 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 // artboard (design's "HOME — MOUNT OLYMPUS"). One fixed screen, no scroll.
 function HomeScreen({
   info, teams, meUid, isAdmin, onAdmin, onLogout, seam, secret, onSecret, tuning, owlDebug, onGarden,
+  gardenPeekSignal,
 }) {
   // Once the owl has delivered the scroll the artboard stays on the end frame.
   // The server remembers the discovery, so it survives a reload/reinstall.
@@ -80,7 +81,7 @@ function HomeScreen({
             tuning={tuning}
           />
         )}
-        <GardenDrawer onOpenGarden={onGarden}>
+        <GardenDrawer onOpenGarden={onGarden} peekSignal={gardenPeekSignal}>
           <div className="home-team-card">
             <span className="app-emblem">{info.emblem}</span>
             <div className="home-team-meta">
@@ -246,6 +247,8 @@ export default function UserApp() {
   const { data, error, refresh, serverNow } = useGame(currentUser);
   const now = useNow(serverNow);
   const [tab, setTab] = useState('home');
+  const [homePeekSignal, setHomePeekSignal] = useState(0);
+  const prevTabRef = useRef('home');
   const prevChallengeRef = useRef(null);
   // NFC "found" celebration ({ ok, rank, points, already, none, error }).
   const [found, setFound] = useState(null);
@@ -307,6 +310,13 @@ export default function UserApp() {
     else if (!challengeId) setTab((current) => (current === 'challenge' ? 'home' : current));
     prevChallengeRef.current = challengeId;
   }, [challengeId]);
+
+  useEffect(() => {
+    if (tab === 'home' && prevTabRef.current !== 'home') {
+      setHomePeekSignal((value) => value + 1);
+    }
+    prevTabRef.current = tab;
+  }, [tab]);
 
   // NFC tag tapped (?found=<token>): validate the destination for this team,
   // which awards it and unlocks the route to their next stop.
@@ -463,6 +473,7 @@ export default function UserApp() {
           <HomeScreen
             info={info}
             isAdmin={userRole === 'admin'}
+            gardenPeekSignal={homePeekSignal}
             meUid={data?.me?.uid}
             onAdmin={() => navigate('/admin')}
             onGarden={() => setGateOpen(true)}
@@ -487,7 +498,10 @@ export default function UserApp() {
       <nav className="tab-bar">
         <button
           className={`tab-btn ${tab === 'home' ? 'is-active' : ''}`}
-          onClick={() => setTab('home')}
+          onClick={() => {
+            if (tab === 'home') setHomePeekSignal((value) => value + 1);
+            setTab('home');
+          }}
           type="button"
         >
           <span className="tab-icon">🏛️</span>

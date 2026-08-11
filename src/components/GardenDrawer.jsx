@@ -11,7 +11,7 @@ const HOLD_MS = 1200;
 const RING_R = 13;
 const RING_C = 2 * Math.PI * RING_R;
 
-export default function GardenDrawer({ children, onOpenGarden }) {
+export default function GardenDrawer({ children, onOpenGarden, peekSignal = 0 }) {
   const wrapRef = useRef(null);
   const dragRef = useRef(null);
   const rafRef = useRef(0);
@@ -23,6 +23,7 @@ export default function GardenDrawer({ children, onOpenGarden }) {
   const [dragging, setDragging] = useState(false);
   const [maxSlide, setMaxSlide] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [peeking, setPeeking] = useState(false);
 
   useEffect(() => {
     function measure() {
@@ -65,6 +66,13 @@ export default function GardenDrawer({ children, onOpenGarden }) {
       window.removeEventListener('touchcancel', end);
     };
   }, [dragging, maxSlide]);
+
+  useEffect(() => {
+    if (dragging) return undefined;
+    setPeeking(false);
+    const frame = requestAnimationFrame(() => setPeeking(true));
+    return () => cancelAnimationFrame(frame);
+  }, [dragging, peekSignal]);
 
   // Held far enough? Fill the ring; slipping back or letting go resets it.
   // Depending on the boolean (not the raw offset) keeps finger jitter from
@@ -131,7 +139,12 @@ export default function GardenDrawer({ children, onOpenGarden }) {
         onTouchStart={start}
         style={{ transform: `translateX(${offset}px)` }}
       >
-        <div className="garden-drawer-peek">{children}</div>
+        <div
+          className={`garden-drawer-peek ${peeking ? 'is-peeking' : ''}`}
+          onAnimationEnd={() => setPeeking(false)}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );
