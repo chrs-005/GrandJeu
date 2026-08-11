@@ -75,7 +75,7 @@ export default function Login() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="user name"
+              placeholder="username"
               required
               autoComplete="username"
               autoCapitalize="none"
@@ -90,7 +90,7 @@ export default function Login() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="mot de passe"
+              placeholder="password"
               required
               autoComplete="current-password"
               disabled={loading}
