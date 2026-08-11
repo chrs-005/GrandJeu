@@ -558,8 +558,8 @@ async function handlePost(req, res) {
       return res.status(200).json({ ok: true, ...result });
     }
 
-    // -- secret riddle (the owl easter egg on the home screen) ----------------------
-    // The text is only served once a team has actually found the owl, so it
+    // -- secret location (the owl easter egg on the home screen) --------------------
+    // The map link is only served once a team has actually found the owl, so it
     // can't be read out of the poll payload by a curious scout.
     case 'secret-open': {
       const snap = await db.collection('gameState').doc('secret').get();
@@ -576,49 +576,9 @@ async function handlePost(req, res) {
       }
       return res.status(200).json({
         ok: true,
-        text: secret.text,
-        hint: secret.hint || null,
-        points: secret.points || 0,
-        solved: Boolean(own?.solved),
-        wonPoints: own?.points || 0,
+        location: secret.location || '33.8568304, 35.7256696',
+        mapUrl: secret.mapUrl || 'https://maps.app.goo.gl/2FK2KBe7kycKC3R18?g_st=iw',
       });
-    }
-
-    case 'secret-answer': {
-      const ref = db.collection('gameState').doc('secret');
-      const result = await db.runTransaction(async (tx) => {
-        const snap = await tx.get(ref);
-        if (!snap.exists || !snap.data().active) return { inactive: true };
-        const secret = snap.data();
-        const own = secret.solvedBy?.[uid] || {};
-        if (own.solved) return { alreadySolved: true, points: own.points || 0 };
-
-        const normalized = normalizeAnswer(body.answer);
-        if (!normalized) return { empty: true };
-        const accepted = (secret.answers || []).map(normalizeAnswer);
-        const attempts = (own.attempts || 0) + 1;
-
-        if (!accepted.includes(normalized)) {
-          tx.set(ref, { solvedBy: { [uid]: { ...own, username, attempts } } }, { merge: true });
-          return { correct: false, attempts };
-        }
-
-        const rank = Object.values(secret.solvedBy || {}).filter((e) => e.solved).length + 1;
-        // First team to crack it gets double — it's meant to be a scoop.
-        const points = (secret.points || 0) * (rank === 1 ? 2 : 1);
-        tx.set(
-          ref,
-          { solvedBy: { [uid]: { ...own, username, attempts, solved: true, solvedAtMs: now, points, rank } } },
-          { merge: true }
-        );
-        return { correct: true, points, rank };
-      });
-
-      if (result.correct) {
-        invalidateStateCache();
-        await addPoints(db, uid, username, result.points, 'Secret de la chouette');
-      }
-      return res.status(200).json({ ok: true, ...result });
     }
 
     // -- défis (always-on challenge list) -------------------------------------------

@@ -279,16 +279,13 @@ async function handleGet(req, res, verified) {
     secret: secret
       ? {
           active: Boolean(secret.active),
-          text: secret.text || '',
-          answers: secret.answers || [],
-          hint: secret.hint || '',
-          points: secret.points || 150,
+          location: secret.location || '33.8568304, 35.7256696',
+          mapUrl: secret.mapUrl || 'https://maps.app.goo.gl/2FK2KBe7kycKC3R18?g_st=iw',
           finders: Object.entries(secret.solvedBy || {}).map(([uid, entry]) => ({
             uid,
             username: entry.username || uid,
             found: Boolean(entry.foundAtMs),
-            solved: Boolean(entry.solved),
-            points: entry.points || 0,
+            foundAtMs: entry.foundAtMs || 0,
           })),
         }
       : null,
@@ -456,20 +453,13 @@ async function handlePost(req, res, verified) {
       return res.status(200).json({ ok: true });
     }
 
-    // -- Secret de la chouette (hidden owl riddle on the home screen) -----------
+    // -- Secret de la chouette (hidden owl location on the home screen) ---------
     case 'secret-setup': {
-      const text = String(body.text || '').trim().slice(0, 800);
-      const answers = (body.answers || []).map((a) => String(a).trim()).filter(Boolean);
-      if (body.active !== false && (!text || !answers.length)) {
-        return sendError(res, 400, 'Énigme et réponses requises.');
-      }
       await db.collection('gameState').doc('secret').set(
         {
           active: body.active !== false,
-          text,
-          answers,
-          hint: String(body.hint || '').trim().slice(0, 200) || null,
-          points: num(body.points, 150, 0, 2000),
+          location: '33.8568304, 35.7256696',
+          mapUrl: 'https://maps.app.goo.gl/2FK2KBe7kycKC3R18?g_st=iw',
           updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true }

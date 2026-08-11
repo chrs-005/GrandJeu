@@ -814,11 +814,7 @@ export default function Admin() {
   const [notifBody, setNotifBody] = useState('');
   // Per-team route visibility on the console map (unchecked = hidden).
   const [hiddenRoutes, setHiddenRoutes] = useState({});
-  // Hidden owl riddle.
-  const [secretText, setSecretText] = useState('');
-  const [secretAnswers, setSecretAnswers] = useState('');
-  const [secretHint, setSecretHint] = useState('');
-  const [secretPoints, setSecretPoints] = useState(150);
+  // Hidden owl location.
   const offsetRef = useRef(0);
   const withImagesRef = useRef(withImages);
   withImagesRef.current = withImages;
@@ -843,18 +839,6 @@ export default function Admin() {
     const interval = setInterval(load, 6000);
     return () => clearInterval(interval);
   }, [load]);
-
-  // Seed the secret-riddle form from the server once, so editing an existing
-  // one shows its current wording instead of a blank box.
-  const secretSeededRef = useRef(false);
-  useEffect(() => {
-    if (secretSeededRef.current || !data?.secret?.text) return;
-    secretSeededRef.current = true;
-    setSecretText(data.secret.text);
-    setSecretAnswers((data.secret.answers || []).join(', '));
-    setSecretHint(data.secret.hint || '');
-    setSecretPoints(data.secret.points || 150);
-  }, [data]);
 
   async function runAction(action, payload = {}, successMessage = '') {
     setBusy(true);
@@ -966,45 +950,16 @@ export default function Admin() {
           </h3>
           <p className="form-hint">
             Caché sur l’accueil : 5 tapes sur la chouette d’Athéna et elle s’envole chercher un
-            parchemin. Première équipe à résoudre = points doublés.
+            parchemin avec une position Google Maps.
           </p>
-          <div className="form-grid">
-            <label>
-              Énigme
-              <textarea
-                maxLength={800}
-                onChange={(e) => setSecretText(e.target.value)}
-                placeholder="Je vole sans ailes la nuit…"
-                rows={3}
-                value={secretText}
-              />
-            </label>
-            <label>
-              Réponses acceptées (séparées par des virgules)
-              <input onChange={(e) => setSecretAnswers(e.target.value)} type="text" value={secretAnswers} />
-            </label>
-            <div className="dest-fields">
-              <input onChange={(e) => setSecretHint(e.target.value)} placeholder="Indice (optionnel)" type="text" value={secretHint} />
-              <input onChange={(e) => setSecretPoints(e.target.value)} placeholder="pts" type="number" value={secretPoints} />
-            </div>
-          </div>
+          <p className="secret-location-admin">
+            33.8568304, 35.7256696
+          </p>
           <div className="btn-group">
             <button
               className="btn btn-primary"
-              disabled={busy || !secretText.trim() || !secretAnswers.trim()}
-              onClick={() =>
-                runAction(
-                  'secret-setup',
-                  {
-                    active: true,
-                    text: secretText,
-                    answers: secretAnswers.split(',').map((a) => a.trim()).filter(Boolean),
-                    hint: secretHint,
-                    points: Number(secretPoints),
-                  },
-                  'Secret armé !'
-                )
-              }
+              disabled={busy}
+              onClick={() => runAction('secret-setup', { active: true }, 'Secret armé !')}
               type="button"
             >
               🦉 Armer le secret
@@ -1023,7 +978,7 @@ export default function Admin() {
               {data.secret.finders.map((f) => (
                 <li key={f.uid}>
                   <span>{teamInfo(f.username).emblem} {f.username}</span>
-                  <strong>{f.solved ? `✅ +${f.points}` : '👀 a trouvé la chouette'}</strong>
+                  <strong>👀 a trouvé la chouette</strong>
                 </li>
               ))}
             </ol>
