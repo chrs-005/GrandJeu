@@ -102,9 +102,8 @@ export default function DrawGuessChallenge({ user, challenge, now, refresh }) {
             <p>
               Votre réponse : <strong>{challenge.ownGuess || '—'}</strong>
             </p>
-            {challenge.guessResult != null && challenge.guessResult > 0 && (
-              <p className="points-chip">+{challenge.guessResult} pts</p>
-            )}
+            {challenge.guessStatus === 'valid' && <p className="badge badge-success">Réponse acceptée</p>}
+            {challenge.guessStatus === 'rejected' && <p className="badge badge-error">Réponse refusée</p>}
           </div>
         </div>
       )}

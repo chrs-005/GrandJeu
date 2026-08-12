@@ -41,27 +41,11 @@ export function getDb() {
 const userCache = new Map(); // uid -> { data, ts }
 const USER_CACHE_TTL = 60_000;
 
-let stateCache = null; // { data: { state, scores, challenge }, ts }
+let stateCache = null; // { data: { current, challenge, parcours, secret }, ts }
 const STATE_CACHE_TTL = 2_500;
-
-// Which accounts are admins (to keep them off the leaderboard). Roles never
-// change mid-game, so re-reading the whole users collection on every poll was
-// pure waste: 6 docs × every client × every few seconds.
-let adminUidsCache = null; // { set, ts }
-const ADMIN_UIDS_TTL = 300_000;
 
 export function invalidateStateCache() {
   stateCache = null;
-}
-
-export async function getAdminUids(db) {
-  if (adminUidsCache && Date.now() - adminUidsCache.ts < ADMIN_UIDS_TTL) {
-    return adminUidsCache.set;
-  }
-  const snap = await db.collection('users').get();
-  const set = new Set(snap.docs.filter((doc) => doc.data().role === 'admin').map((doc) => doc.id));
-  adminUidsCache = { set, ts: Date.now() };
-  return set;
 }
 
 export async function verifyUser(req) {
@@ -101,9 +85,8 @@ export async function loadGameState(db) {
     return stateCache.data;
   }
 
-  const [currentSnap, scoresSnap, parcoursSnap, secretSnap] = await Promise.all([
+  const [currentSnap, parcoursSnap, secretSnap] = await Promise.all([
     db.collection('gameState').doc('current').get(),
-    db.collection('gameState').doc('scores').get(),
     db.collection('gameState').doc('parcours').get(),
     db.collection('gameState').doc('secret').get(),
   ]);
@@ -119,7 +102,6 @@ export async function loadGameState(db) {
 
   const data = {
     current,
-    scores: scoresSnap.exists ? scoresSnap.data().teams || {} : {},
     challenge,
     parcours: parcoursSnap.exists ? parcoursSnap.data() : null,
     secret: secretSnap.exists ? secretSnap.data() : null,
@@ -128,50 +110,16 @@ export async function loadGameState(db) {
   return data;
 }
 
-// Ensures gameState/scores has an entry for every non-admin user.
-export async function ensureScoresDoc(db) {
-  const scoresRef = db.collection('gameState').doc('scores');
-  const snap = await scoresRef.get();
-  const teams = snap.exists ? snap.data().teams || {} : {};
-
+export async function loadTeams(db) {
   const usersSnap = await db.collection('users').get();
-  let changed = false;
-  usersSnap.docs.forEach((doc) => {
-    const data = doc.data();
-    if (data.role === 'admin') return;
-    if (!teams[doc.id]) {
-      teams[doc.id] = { username: data.username || data.email?.split('@')[0] || doc.id, score: 0 };
-      changed = true;
-    }
-  });
-
-  if (changed || !snap.exists) {
-    await scoresRef.set({ teams, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-    invalidateStateCache();
-  }
-  return teams;
-}
-
-export async function addPoints(db, uid, username, points, reason, challengeId = null) {
-  if (!points) return;
-  const scoresRef = db.collection('gameState').doc('scores');
-  await scoresRef.set(
-    {
-      teams: { [uid]: { username, score: FieldValue.increment(points) } },
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
-  await db.collection('scoreLog').add({
-    uid,
-    username,
-    points,
-    reason: reason || '',
-    challengeId,
-    atMs: Date.now(),
-    createdAt: FieldValue.serverTimestamp(),
-  });
-  invalidateStateCache();
+  return usersSnap.docs
+    .map((doc) => ({ uid: doc.id, ...doc.data() }))
+    .filter((user) => user.role !== 'admin')
+    .map((user) => ({
+      uid: user.uid,
+      username: user.username || user.email?.split('@')[0] || user.uid,
+    }))
+    .sort((a, b) => a.username.localeCompare(b.username));
 }
 
 // ---------------------------------------------------------------------------

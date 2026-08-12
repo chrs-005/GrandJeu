@@ -8,7 +8,6 @@ export const FIXED_FINAL_DESTINATION = {
   lat: 33.8544286,
   lng: 35.7263093,
   hint: null,
-  points: 0,
   fixed: true,
 };
 
@@ -90,14 +89,13 @@ export function buildParcoursView(parcours, uid) {
     total: sequence.length,
     done,
     destination: destination
-      ? { name: destination.name, hint: destination.hint || null, points: destination.points }
+      ? { name: destination.name, hint: destination.hint || null }
       : null,
     route,
     routeStraight: Boolean(progress.routeStraight),
     found: (progress.found || []).map((f) => ({
       name: f.name,
       atMs: f.atMs,
-      points: f.points,
       rank: f.rank,
     })),
   };
@@ -125,7 +123,7 @@ export function buildParcoursAdminView(parcours) {
       currentName: target?.name || null,
       routeStraight: Boolean(progress.routeStraight),
       route,
-      found: (progress.found || []).map((f) => ({ name: f.name, atMs: f.atMs, points: f.points })),
+      found: (progress.found || []).map((f) => ({ name: f.name, atMs: f.atMs })),
     };
   });
   return {
@@ -133,7 +131,6 @@ export function buildParcoursAdminView(parcours) {
     destinations: (parcours.destinations || []).map((d) => ({
       id: d.id,
       name: d.name,
-      points: d.points,
       lat: d.lat,
       lng: d.lng,
       hint: d.hint || null,

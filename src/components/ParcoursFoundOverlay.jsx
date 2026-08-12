@@ -15,7 +15,6 @@ export default function ParcoursFoundOverlay({ found, onClose }) {
                 ? 'Première équipe sur ce lieu !'
                 : `${found.rank}${rankOrdinal} équipe sur ce lieu`}
             </p>
-            {found.points > 0 && <span className="points-chip">+{found.points} pts</span>}
             <p className="found-sub">
               {found.finished
                 ? 'C’était le dernier lieu — parcours terminé !'

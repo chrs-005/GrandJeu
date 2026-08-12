@@ -4,11 +4,11 @@
 // drawguess-guess, riddle, guide, territory, territory-end
 
 const TEAM_FIXTURES = [
-  { uid: 'u-faucon', username: 'faucon', score: 320 },
-  { uid: 'u-requin', username: 'requin', score: 260 },
-  { uid: 'u-panda', username: 'panda', score: 210 },
-  { uid: 'u-leopard', username: 'leopard', score: 150 },
-  { uid: 'u-bison', username: 'bison', score: 90 },
+  { uid: 'u-faucon', username: 'faucon' },
+  { uid: 'u-requin', username: 'requin' },
+  { uid: 'u-panda', username: 'panda' },
+  { uid: 'u-leopard', username: 'leopard' },
+  { uid: 'u-bison', username: 'bison' },
 ];
 
 const SAMPLE_DRAWING =
@@ -22,7 +22,7 @@ export function buildMockGame(type) {
   const base = {
     ok: true,
     serverNow: now,
-    me: { uid: 'u-faucon', username: 'faucon', role: 'user', score: 320 },
+    me: { uid: 'u-faucon', username: 'faucon', role: 'user' },
     teams: TEAM_FIXTURES,
     challenge: null,
     parcours: null,
@@ -47,16 +47,16 @@ export function buildMockGame(type) {
       destination:
         type === 'parcours-done'
           ? null
-          : { name: 'La Fontaine des Muses', hint: 'Derrière la statue', points: 100 },
+          : { name: 'La Fontaine des Muses', hint: 'Derrière la statue' },
       route: type === 'parcours-done' ? [] : crumbs,
       routeStraight: false,
       found: [
-        { name: 'Le Vieux Chêne', atMs: now - 900_000, points: 100, rank: 2 },
+        { name: 'Le Vieux Chêne', atMs: now - 900_000, rank: 2 },
         ...(type === 'parcours-done'
           ? [
-              { name: 'La Fontaine des Muses', atMs: now - 600_000, points: 100, rank: 1 },
-              { name: 'Le Pont de Pierre', atMs: now - 300_000, points: 100, rank: 3 },
-              { name: 'La Tour', atMs: now - 60_000, points: 100, rank: 1 },
+              { name: 'La Fontaine des Muses', atMs: now - 600_000, rank: 1 },
+              { name: 'Le Pont de Pierre', atMs: now - 300_000, rank: 3 },
+              { name: 'La Tour', atMs: now - 60_000, rank: 1 },
             ]
           : []),
       ],
@@ -72,10 +72,6 @@ export function buildMockGame(type) {
         ...common,
         type: 'steps',
         endAtMs: now + 90_000,
-        hideFinalSeconds: 45,
-        hideFromMs: now + 45_000,
-        leaderboardHidden: false,
-        leaderboard: TEAM_FIXTURES.map((t, i) => ({ ...t, steps: 400 - i * 60 })),
         ownSteps: 400,
       };
       break;
@@ -84,10 +80,6 @@ export function buildMockGame(type) {
         ...common,
         type: 'steps',
         endAtMs: now + 30_000,
-        hideFinalSeconds: 45,
-        hideFromMs: now - 1000,
-        leaderboardHidden: true,
-        leaderboard: null,
         ownSteps: 512,
       };
       break;
@@ -103,7 +95,6 @@ export function buildMockGame(type) {
             index: 0,
             q: 'Qui est le roi des dieux de l’Olympe ?',
             options: ['Poséidon', 'Zeus', 'Hadès', 'Apollon'],
-            points: 100,
             timeLimitSec: 20,
             startAtMs: now - 5000,
             endAtMs: now + 15_000,
@@ -111,7 +102,6 @@ export function buildMockGame(type) {
           },
         ],
         ownAnswers: {},
-        ownTriviaPoints: 0,
       };
       break;
     case 'bounty':
@@ -132,7 +122,7 @@ export function buildMockGame(type) {
         endAtMs: now + 600_000,
         target: null,
         mission: 'Toute l’équipe en pyramide humaine devant un monument',
-        ownSubmission: { atMs: now - 60_000, status: 'valid', points: 70 },
+        ownSubmission: { atMs: now - 60_000, status: 'valid' },
         submittedCount: 4,
       };
       break;
@@ -146,7 +136,7 @@ export function buildMockGame(type) {
         prompt: 'Le cheval de Troie',
         drawingSubmitted: false,
         ownGuess: null,
-        guessResult: null,
+        guessStatus: null,
       };
       break;
     case 'drawguess-guess':
@@ -159,7 +149,7 @@ export function buildMockGame(type) {
         prompt: 'Le cheval de Troie',
         drawingSubmitted: true,
         ownGuess: null,
-        guessResult: null,
+        guessStatus: null,
         sourceDrawing: SAMPLE_DRAWING,
       };
       break;
@@ -169,10 +159,8 @@ export function buildMockGame(type) {
         type: 'riddle',
         endAtMs: now + 300_000,
         text: 'Quel être marche à quatre pattes le matin, à deux pattes le midi et à trois pattes le soir ?',
-        points: 100,
         solved: false,
         solvedAtMs: null,
-        wonPoints: 0,
         attempts: 1,
         solvedCount: 1,
       };
@@ -187,7 +175,7 @@ export function buildMockGame(type) {
         radiusM: 30,
         arrived: null,
         arrivals: [
-          { uid: 'u-requin', username: 'requin', rank: 1, points: 100, atMs: now - 120_000 },
+          { uid: 'u-requin', username: 'requin', rank: 1, atMs: now - 120_000 },
         ],
         mockPos: { lat: 33.8938, lng: 35.5018, accuracy: 8 },
       };
@@ -260,7 +248,7 @@ export function buildMockGame(type) {
       break;
     }
     default:
-      break; // hub: no challenge, just the Olympus board
+      break; // hub: no active challenge
   }
 
   return base;

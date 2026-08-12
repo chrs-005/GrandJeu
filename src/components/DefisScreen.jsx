@@ -27,14 +27,8 @@ function DefiCard({ defi, now, onOpen, index }) {
       {defi.hot && (
         <span className="defi-flame">
           🔥 Brûlant · {formatRemaining(remaining)}
-          {defi.bonusPoints > 0 && ` · +${defi.bonusPoints} bonus`}
         </span>
       )}
-
-      <span className="defi-medallion">
-        <b>{defi.points + (defi.bonusPoints || 0)}</b>
-        <small>pts</small>
-      </span>
 
       <span className="defi-body">
         {defi.category && <span className="defi-cat">{defi.category}</span>}
@@ -45,9 +39,6 @@ function DefiCard({ defi, now, onOpen, index }) {
           {status && (
             <span className="defi-status">
               {status.label}
-              {defi.submission.status === 'valid' && defi.submission.points > 0
-                ? ` +${defi.submission.points}`
-                : ''}
             </span>
           )}
         </span>
@@ -85,10 +76,7 @@ function SubmitSheet({ user, defi, onClose, onDone }) {
   return (
     <div className="defi-sheet-overlay" onClick={busy ? undefined : onClose}>
       <div className="defi-sheet" onClick={(e) => e.stopPropagation()}>
-        <span className="defi-sheet-points">
-          {defi.points + (defi.bonusPoints || 0)} pts
-          {defi.hot && ' 🔥'}
-        </span>
+        {defi.hot && <span className="defi-sheet-hot">🔥 Défi brûlant</span>}
         <h2 className="defi-sheet-title">{defi.title}</h2>
         {defi.description && <p className="defi-sheet-desc">{defi.description}</p>}
 

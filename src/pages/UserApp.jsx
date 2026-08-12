@@ -48,13 +48,11 @@ function isStandalone() {
   );
 }
 
-const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 const OWL_MAP_URL = 'https://maps.app.goo.gl/2FK2KBe7kycKC3R18?g_st=iw';
 
-// Home tab: team card + Mount Olympus leaderboard floating on the temple
-// artboard (design's "HOME — MOUNT OLYMPUS"). One fixed screen, no scroll.
+// Home tab: team card and the logged-in team's crest on the temple artboard.
 function HomeScreen({
-  info, teams, meUid, isAdmin, onAdmin, onLogout, seam, secret, onSecret, tuning, owlDebug, onGarden,
+  info, isAdmin, onAdmin, onLogout, seam, secret, onSecret, tuning, owlDebug, onGarden,
   gardenPeekSignal,
 }) {
   // Once the owl has delivered the scroll the artboard stays on the end frame.
@@ -82,7 +80,6 @@ function HomeScreen({
         )}
         <GardenDrawer onOpenGarden={onGarden} peekSignal={gardenPeekSignal}>
           <div className="home-team-card">
-            <span className="app-emblem">{info.emblem}</span>
             <div className="home-team-meta">
               <strong>{info.title}</strong>
               <span>Sous la protection de {info.god}</span>
@@ -92,26 +89,8 @@ function HomeScreen({
       </div>
 
       <div className="challenge-body home-body">
-        <div className="leader-card">
-          <div className="leader-title">Mont Olympe</div>
-          <ol className="leader-list">
-            {(teams || []).map((team, i) => {
-              const ti = teamInfo(team.username);
-              return (
-                <li className={`leader-row ${team.uid === meUid ? 'is-me' : ''}`} key={team.uid}>
-                  <span className="leader-rank">{ROMAN[i] || i + 1}</span>
-                  <span className="leader-emblem">{ti.emblem}</span>
-                  <span className="leader-name">{ti.title}</span>
-                  <strong className="leader-score">{team.score}</strong>
-                </li>
-              );
-            })}
-            {!teams?.length && (
-              <li className="leader-row">
-                <span className="leader-name">En attente des équipes…</span>
-              </li>
-            )}
-          </ol>
+        <div className="home-team-crest">
+          {info.logo ? <img alt={`Logo ${info.title}`} src={info.logo} /> : <span>{info.emblem}</span>}
         </div>
 
         <div className="home-actions">
@@ -379,7 +358,6 @@ export default function UserApp() {
             info={info}
             isAdmin={userRole === 'admin'}
             gardenPeekSignal={homePeekSignal}
-            meUid={data?.me?.uid}
             onAdmin={() => navigate('/admin')}
             onGarden={() => setGateOpen(true)}
             onLogout={handleLogout}
@@ -387,7 +365,6 @@ export default function UserApp() {
             seam={seam}
             owlDebug={owlDebug}
             secret={data?.secret}
-            teams={data?.teams}
             tuning={tuning}
           />
         )}

@@ -3,14 +3,13 @@ import {
   FieldValue,
   verifyUser,
   loadGameState,
-  ensureScoresDoc,
-  addPoints,
+  loadTeams,
   sendPush,
   invalidateStateCache,
   sendError,
   withErrorHandling,
 } from './_lib/core.js';
-import { territoryAreas, SEED_RADIUS_M } from './_lib/territory.js';
+import { SEED_RADIUS_M } from './_lib/territory.js';
 import {
   FIXED_FINAL_DESTINATION,
   buildSequences,
@@ -26,7 +25,6 @@ import {
 } from './_lib/defis.js';
 import { appendSheetChallenge, sheetConfigured } from './_lib/sheets.js';
 
-const DEFAULT_RANK_POINTS = [100, 70, 50, 35, 20];
 const ARIANNE_EMAIL = 'arianne@grandjeu.local';
 
 const PUSH_BY_TYPE = {
@@ -62,9 +60,6 @@ function buildChallenge(type, cfg, teamUids) {
         config: {
           durationSeconds,
           hideFinalSeconds: num(cfg.hideFinalSeconds, 45, 0, durationSeconds),
-          rankPoints: Array.isArray(cfg.rankPoints) && cfg.rankPoints.length
-            ? cfg.rankPoints.map((p) => num(p, 0, 0, 1000))
-            : DEFAULT_RANK_POINTS,
         },
       };
     }
@@ -74,7 +69,6 @@ function buildChallenge(type, cfg, teamUids) {
         q: String(q.q || '').slice(0, 300),
         options: (q.options || []).slice(0, 4).map((o) => String(o).slice(0, 120)),
         correct: num(q.correct, 0, 0, 3),
-        points: num(q.points, 100, 10, 1000),
         timeLimitSec: num(q.timeLimitSec, 20, 5, 120),
       }));
       if (!questions.length) throw new Error('Aucune question fournie.');
@@ -156,8 +150,6 @@ function buildChallenge(type, cfg, teamUids) {
           durationSeconds,
           text,
           answers,
-          points: num(cfg.points, 100, 0, 1000),
-          firstBonus: num(cfg.firstBonus, 50, 0, 1000),
         },
       };
     }
@@ -177,9 +169,6 @@ function buildChallenge(type, cfg, teamUids) {
           lat,
           lng,
           radiusM: num(cfg.radiusM, 30, 10, 500),
-          rankPoints: Array.isArray(cfg.rankPoints) && cfg.rankPoints.length
-            ? cfg.rankPoints.map((p) => num(p, 0, 0, 1000))
-            : DEFAULT_RANK_POINTS,
         },
       };
     }
@@ -197,7 +186,6 @@ function buildChallenge(type, cfg, teamUids) {
           durationSeconds,
           teamNames,
           seedRadiusM: num(cfg.seedRadiusM, SEED_RADIUS_M, 10, 100),
-          rankPoints: DEFAULT_RANK_POINTS,
         },
         extra: { territories: {}, trails: {}, tracks: {} },
       };
@@ -248,7 +236,7 @@ async function handleGet(req, res, verified) {
     });
   }
 
-  const teams = await ensureScoresDoc(db);
+  const teams = await loadTeams(db);
   const { current, challenge, parcours, secret } = await loadGameState(db);
 
   const usersSnap = await db.collection('users').get();
@@ -266,20 +254,14 @@ async function handleGet(req, res, verified) {
     });
   }
 
-  const logSnap = await db.collection('scoreLog').orderBy('atMs', 'desc').limit(25).get();
-  const scoreLog = logSnap.docs.map((doc) => doc.data());
-
   return res.status(200).json({
     ok: true,
     serverNow: Date.now(),
-    teams: Object.entries(teams)
-      .map(([uid, entry]) => ({ uid, username: entry.username, score: entry.score || 0 }))
-      .sort((a, b) => b.score - a.score || a.username.localeCompare(b.username)),
+    teams,
     locations,
     currentChallengeId: current.challengeId || null,
     challenge,
     media,
-    scoreLog,
     parcours: buildParcoursAdminView(parcours),
     secret: secret
       ? {
@@ -307,11 +289,7 @@ async function handlePost(req, res, verified) {
 
   switch (action) {
     case 'start': {
-      const teamsMap = await ensureScoresDoc(db);
-      const teamUids = Object.entries(teamsMap).map(([uid, entry]) => ({
-        uid,
-        username: entry.username,
-      }));
+      const teamUids = await loadTeams(db);
       const { type } = body;
       const built = buildChallenge(type, body.config || {}, teamUids);
 
@@ -353,43 +331,10 @@ async function handlePost(req, res, verified) {
       const now = Date.now();
 
       const updates = { status: 'ended', endAtMs: Math.min(challenge.endAtMs, now) };
-      const awards = [];
-
-      // Ranked challenges: award ranking points automatically when requested.
-      let ranking = null;
-      let awardReason = '';
-      if (body.award && challenge.type === 'steps') {
-        awardReason = 'Course d’Hermès';
-        ranking = Object.entries(challenge.board || {})
-          .map(([uid, entry]) => ({ uid, username: entry.username, metric: entry.steps || 0 }))
-          .sort((a, b) => b.metric - a.metric);
-      }
-      if (body.award && challenge.type === 'territory') {
-        awardReason = 'Conquête d’Arès';
-        const areas = territoryAreas(challenge);
-        ranking = Object.entries(challenge.config.teamNames || {})
-          .map(([uid, username]) => ({ uid, username, metric: areas[uid] || 0 }))
-          .filter((entry) => entry.metric > 0)
-          .sort((a, b) => b.metric - a.metric);
-      }
-      if (ranking) {
-        const rankPoints = challenge.config.rankPoints || DEFAULT_RANK_POINTS;
-        for (let i = 0; i < ranking.length; i++) {
-          const points = rankPoints[i] || 0;
-          if (points > 0) {
-            awards.push({ ...ranking[i], points });
-            updates[`board.${ranking[i].uid}.points`] = points;
-            updates[`board.${ranking[i].uid}.username`] = ranking[i].username;
-          }
-        }
-      }
 
       await ref.update(updates);
       invalidateStateCache();
-      for (const award of awards) {
-        await addPoints(db, award.uid, award.username, award.points, awardReason, challenge.id);
-      }
-      return res.status(200).json({ ok: true, awards });
+      return res.status(200).json({ ok: true });
     }
 
     case 'clear': {
@@ -402,9 +347,9 @@ async function handlePost(req, res, verified) {
       return res.status(200).json({ ok: true });
     }
 
-    // Validate/score a submission (photo, bounty, drawguess guess) and award points.
+    // Accept or refuse a submission.
     case 'review': {
-      const { challengeId, uid, status, points, reason } = body;
+      const { challengeId, uid, status } = body;
       const ref = db.collection('challenges').doc(challengeId);
       const snap = await ref.get();
       if (!snap.exists) return sendError(res, 404, 'Défi introuvable.');
@@ -412,48 +357,13 @@ async function handlePost(req, res, verified) {
       const entry = challenge.board?.[uid];
       if (!entry) return sendError(res, 404, 'Aucune participation pour cette équipe.');
 
-      const awarded = num(points, 0, 0, 1000);
       const updates = {};
       if (challenge.type === 'drawguess') {
-        const already = entry.guessPoints || 0;
-        updates[`board.${uid}.guessPoints`] = awarded;
-        if (awarded - already !== 0) {
-          await addPoints(db, uid, entry.username, awarded - already, reason || 'Défi des Muses', challengeId);
-        }
+        updates[`board.${uid}.guessStatus`] = status === 'valid' ? 'valid' : 'rejected';
       } else {
-        const already = entry.points || 0;
-        updates[`board.${uid}.status`] = status || (awarded > 0 ? 'valid' : 'rejected');
-        updates[`board.${uid}.points`] = awarded;
-        if (awarded - already !== 0) {
-          await addPoints(db, uid, entry.username, awarded - already, reason || 'Épreuve validée', challengeId);
-        }
+        updates[`board.${uid}.status`] = status === 'valid' ? 'valid' : 'rejected';
       }
       await ref.update(updates);
-      invalidateStateCache();
-      return res.status(200).json({ ok: true });
-    }
-
-    case 'adjust-score': {
-      const { uid, delta, reason } = body;
-      const teams = await ensureScoresDoc(db);
-      const entry = teams[uid];
-      if (!entry) return sendError(res, 404, 'Équipe inconnue.');
-      const points = num(delta, 0, -10000, 10000);
-      if (!points) return sendError(res, 400, 'Delta invalide.');
-      await addPoints(db, uid, entry.username, points, reason || 'Ajustement manuel');
-      return res.status(200).json({ ok: true });
-    }
-
-    case 'reset-scores': {
-      const teams = await ensureScoresDoc(db);
-      const zeroed = {};
-      Object.entries(teams).forEach(([uid, entry]) => {
-        zeroed[uid] = { username: entry.username, score: 0 };
-      });
-      await db.collection('gameState').doc('scores').set({
-        teams: zeroed,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
       invalidateStateCache();
       return res.status(200).json({ ok: true });
     }
@@ -483,7 +393,7 @@ async function handlePost(req, res, verified) {
     }
 
     // -- Les Défis --------------------------------------------------------------
-    // Validate/refuse a submission. Points land on the scoreboard immediately.
+    // Validate or refuse a submission.
     case 'defi-review': {
       const { uid, challengeId, status } = body;
       const ref = db.collection('defiSubmissions').doc(String(uid || ''));
@@ -492,30 +402,18 @@ async function handlePost(req, res, verified) {
       const entry = snap.data().items?.[challengeId];
       if (!entry) return sendError(res, 404, 'Soumission introuvable.');
 
-      const awarded = num(body.points, 0, 0, 2000);
-      const already = entry.points || 0;
       await ref.set(
         {
           items: {
             [challengeId]: {
               ...entry,
-              status: status || (awarded > 0 ? 'valid' : 'rejected'),
-              points: awarded,
+              status: status === 'valid' ? 'valid' : 'rejected',
               reviewedAtMs: Date.now(),
             },
           },
         },
         { merge: true }
       );
-      if (awarded - already !== 0) {
-        await addPoints(
-          db,
-          uid,
-          snap.data().username || uid,
-          awarded - already,
-          `Défi — ${entry.title || challengeId}`
-        );
-      }
       return res.status(200).json({ ok: true });
     }
 
@@ -527,7 +425,6 @@ async function handlePost(req, res, verified) {
       const challenge = {
         title,
         description: String(body.description || '').trim().slice(0, 500),
-        points: num(body.points, 50, 0, 2000),
         media: ['photo', 'video', 'any'].includes(body.media) ? body.media : 'any',
         category: String(body.category || '').trim().slice(0, 60),
       };
@@ -556,7 +453,7 @@ async function handlePost(req, res, verified) {
       return res.status(200).json({ ok: true, target: 'local' });
     }
 
-    // Make a challenge "hot": timed, pinned on top, worth bonus points.
+    // Make a challenge "hot": timed and pinned on top.
     case 'defi-hot': {
       const challengeId = String(body.challengeId || '');
       if (!challengeId) return sendError(res, 400, 'Défi manquant.');
@@ -574,7 +471,7 @@ async function handlePost(req, res, verified) {
       await ref.set(
         {
           hot: {
-            [challengeId]: { startAtMs, endAtMs, bonusPoints: num(body.bonusPoints, 50, 0, 1000) },
+            [challengeId]: { startAtMs, endAtMs },
           },
           updatedAt: FieldValue.serverTimestamp(),
         },
@@ -609,8 +506,7 @@ async function handlePost(req, res, verified) {
 
     // -- Le Fil d'Ariane (parcours) --------------------------------------------
     case 'parcours-setup': {
-      const teamsMap = await ensureScoresDoc(db);
-      const teamUids = Object.keys(teamsMap);
+      const teamUids = (await loadTeams(db)).map((team) => team.uid);
       const ref = db.collection('gameState').doc('parcours');
       const destinations = withFixedFinalDestination((body.destinations || [])
         .map((d, i) => {
@@ -625,7 +521,6 @@ async function handlePost(req, res, verified) {
             lat,
             lng,
             hint: String(d.hint || '').trim().slice(0, 200) || null,
-            points: num(d.points, 100, 0, 1000),
           };
         })
         .filter(Boolean));

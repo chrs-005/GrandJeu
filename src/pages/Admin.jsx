@@ -3,15 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { fetchAdmin, adminAction } from '../services/api';
 import { useNow, formatRemaining } from '../hooks/useNow';
-import { teamInfo, challengeMeta, CHALLENGE_META, RANK_POINTS } from '../config/gameConfig';
+import { teamInfo, challengeMeta, CHALLENGE_META } from '../config/gameConfig';
 import { TRIVIA_PACKS } from '../data/triviaPacks';
 import { DRAWING_PROMPTS, PHOTO_MISSIONS, RIDDLE_PRESETS } from '../data/presets';
 import { mpToLatLngPolygons, lngLatToLatLng, multiPolygonAreaM2, formatArea } from '../utils/geo';
 import SatMap from '../components/SatMap';
 import DefisAdmin from '../components/DefisAdmin';
 
-const QUICK_POINTS = [100, 70, 50, 30];
-const RANKED_TYPES = ['steps', 'territory'];
 const FALLBACK_CENTER = { lat: 33.8938, lng: 35.5018 };
 const FIXED_FINAL_DESTINATION_ID = 'arianne-final';
 
@@ -105,7 +103,6 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
   const [riddlePreset, setRiddlePreset] = useState(0);
   const [riddleText, setRiddleText] = useState(RIDDLE_PRESETS[0].text);
   const [riddleAnswers, setRiddleAnswers] = useState(RIDDLE_PRESETS[0].answers.join(', '));
-  const [riddlePoints, setRiddlePoints] = useState(100);
   const [riddleMinutes, setRiddleMinutes] = useState(10);
   const [guidePin, setGuidePin] = useState(null);
   const [guideCoords, setGuideCoords] = useState('');
@@ -136,7 +133,6 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
         return onLaunch(type, {
           durationSeconds: Number(stepDuration),
           hideFinalSeconds: Number(hideFinal),
-          rankPoints: RANK_POINTS,
         });
       case 'trivia': {
         const pack = TRIVIA_PACKS.find((p) => p.id === packId) || TRIVIA_PACKS[0];
@@ -166,8 +162,6 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
         return onLaunch(type, {
           text: riddleText,
           answers: riddleAnswers.split(',').map((a) => a.trim()).filter(Boolean),
-          points: Number(riddlePoints),
-          firstBonus: 50,
           durationSeconds: Number(riddleMinutes) * 60,
         });
       case 'guide':
@@ -200,7 +194,6 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
             Classement voilé sur les dernières (secondes)
             <input min="0" max="600" onChange={(e) => setHideFinal(e.target.value)} type="number" value={hideFinal} />
           </label>
-          <p className="form-hint">Points au classement : {RANK_POINTS.join(' / ')}</p>
         </div>
       )}
 
@@ -220,7 +213,7 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
             Nombre de questions
             <input min="1" max="20" onChange={(e) => setQuestionCount(e.target.value)} type="number" value={questionCount} />
           </label>
-          <p className="form-hint">Points selon la rapidité (style Kahoot). Révélation entre chaque question.</p>
+          <p className="form-hint">Classement final selon les bonnes réponses, puis la rapidité.</p>
         </div>
       )}
 
@@ -304,14 +297,9 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
             <input onChange={(e) => setRiddleAnswers(e.target.value)} type="text" value={riddleAnswers} />
           </label>
           <label>
-            Points
-            <input min="0" max="1000" onChange={(e) => setRiddlePoints(e.target.value)} type="number" value={riddlePoints} />
-          </label>
-          <label>
             Durée (minutes)
             <input min="1" max="240" onChange={(e) => setRiddleMinutes(e.target.value)} type="number" value={riddleMinutes} />
           </label>
-          <p className="form-hint">+50 pts bonus pour la première équipe qui résout. Idéal pour les énigmes de lieux !</p>
         </div>
       )}
 
@@ -348,7 +336,6 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
             Durée (minutes)
             <input min="1" max="240" onChange={(e) => setGuideMinutes(e.target.value)} type="number" value={guideMinutes} />
           </label>
-          <p className="form-hint">Points à l’arrivée : {RANK_POINTS.join(' / ')} (ordre d’arrivée).</p>
         </div>
       )}
 
@@ -363,7 +350,6 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
             Durée (minutes)
             <input min="1" max="240" onChange={(e) => setTerrMinutes(e.target.value)} type="number" value={terrMinutes} />
           </label>
-          <p className="form-hint">Points au classement final : {RANK_POINTS.join(' / ')}.</p>
         </div>
       )}
 
@@ -381,20 +367,13 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
 // ---------------------------------------------------------------------------
 // Live board of the running/last challenge
 // ---------------------------------------------------------------------------
-function ReviewButtons({ onAward, entryPoints }) {
+function ReviewButtons({ onReview, status }) {
   return (
     <div className="review-buttons">
-      {QUICK_POINTS.map((points) => (
-        <button
-          className={`btn btn-sm ${entryPoints === points ? 'btn-primary' : 'btn-secondary'}`}
-          key={points}
-          onClick={() => onAward(points)}
-          type="button"
-        >
-          +{points}
-        </button>
-      ))}
-      <button className="btn btn-sm btn-danger" onClick={() => onAward(0)} type="button">
+      <button className={`btn btn-sm ${status === 'valid' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => onReview('valid')} type="button">
+        ✓ Accepter
+      </button>
+      <button className="btn btn-sm btn-danger" onClick={() => onReview('rejected')} type="button">
         ✗
       </button>
     </div>
@@ -407,8 +386,8 @@ function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
   const entries = Object.entries(board).map(([uid, entry]) => ({ uid, ...entry }));
   const running = challenge.status === 'active' && now < challenge.endAtMs;
 
-  function award(uid, points) {
-    onAction('review', { challengeId: challenge.id, uid, points });
+  function review(uid, status) {
+    onAction('review', { challengeId: challenge.id, uid, status });
   }
 
   return (
@@ -421,19 +400,9 @@ function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
           </span>
         </div>
         <div className="btn-group">
-          {running && RANKED_TYPES.includes(challenge.type) && (
-            <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onAction('end', { challengeId: challenge.id, award: true })} type="button">
-              🏁 Terminer + attribuer les points
-            </button>
-          )}
-          {running && !RANKED_TYPES.includes(challenge.type) && (
+          {running && (
             <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onAction('end', { challengeId: challenge.id })} type="button">
               🏁 Terminer maintenant
-            </button>
-          )}
-          {!running && RANKED_TYPES.includes(challenge.type) && challenge.status !== 'ended' && (
-            <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => onAction('end', { challengeId: challenge.id, award: true })} type="button">
-              🏆 Attribuer les points du classement
             </button>
           )}
           <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => onAction('clear')} type="button">
@@ -450,9 +419,7 @@ function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
             .map((entry, index) => (
               <li key={entry.uid}>
                 <span>{index + 1}. {teamInfo(entry.username).emblem} {entry.username}</span>
-                <strong>
-                  {entry.steps || 0} pas {entry.points ? `→ +${entry.points} pts` : ''}
-                </strong>
+                <strong>{entry.steps || 0} pas</strong>
               </li>
             ))}
           {!entries.length && <li><span>Aucun pas compté pour l’instant.</span></li>}
@@ -463,11 +430,19 @@ function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
       {challenge.type === 'trivia' && (
         <ol className="mini-board">
           {entries
-            .sort((a, b) => (b.points || 0) - (a.points || 0))
-            .map((entry) => (
+            .sort((a, b) => {
+              const correctA = Object.values(a.answers || {}).filter((answer) => answer.correct).length;
+              const correctB = Object.values(b.answers || {}).filter((answer) => answer.correct).length;
+              const timeA = Object.entries(a.answers || {}).reduce((sum, [index, answer]) =>
+                sum + Math.max(0, answer.atMs - (challenge.config.questions?.[Number(index)]?.startAtMs || answer.atMs)), 0);
+              const timeB = Object.entries(b.answers || {}).reduce((sum, [index, answer]) =>
+                sum + Math.max(0, answer.atMs - (challenge.config.questions?.[Number(index)]?.startAtMs || answer.atMs)), 0);
+              return correctB - correctA || timeA - timeB;
+            })
+            .map((entry, index) => (
               <li key={entry.uid}>
-                <span>{teamInfo(entry.username).emblem} {entry.username} — {Object.keys(entry.answers || {}).length} réponses</span>
-                <strong>{entry.points || 0} pts</strong>
+                <span>{index + 1}. {teamInfo(entry.username).emblem} {entry.username}</span>
+                <strong>{Object.values(entry.answers || {}).filter((answer) => answer.correct).length} bonnes réponses</strong>
               </li>
             ))}
           {!entries.length && <li><span>Aucune réponse pour l’instant.</span></li>}
@@ -491,10 +466,10 @@ function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
                   <strong>{teamInfo(entry.username).emblem} {entry.username}</strong>
                   <span>{new Date(entry.submittedAtMs).toLocaleTimeString()}</span>
                   <span className={`badge ${entry.status === 'valid' ? 'badge-success' : entry.status === 'rejected' ? 'badge-error' : 'badge-neutral'}`}>
-                    {entry.status === 'valid' ? `Validé +${entry.points}` : entry.status === 'rejected' ? 'Refusé' : 'À juger'}
+                    {entry.status === 'valid' ? 'Accepté' : entry.status === 'rejected' ? 'Refusé' : 'À juger'}
                   </span>
                 </div>
-                <ReviewButtons entryPoints={entry.points} onAward={(points) => award(entry.uid, points)} />
+                <ReviewButtons onReview={(status) => review(entry.uid, status)} status={entry.status} />
               </article>
             ))}
           {!entries.some((entry) => entry.submittedAtMs) && <p className="form-hint">Aucune photo reçue pour l’instant.</p>}
@@ -527,8 +502,8 @@ function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
                 </div>
                 {guesserUid && guesser?.guess && (
                   <ReviewButtons
-                    entryPoints={guesser.guessPoints}
-                    onAward={(points) => award(guesserUid, points)}
+                    onReview={(status) => review(guesserUid, status)}
+                    status={guesser.guessStatus}
                   />
                 )}
               </article>
@@ -558,7 +533,7 @@ function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
                     {entry.rank}. {teamInfo(entry.username).emblem} {entry.username} —{' '}
                     {new Date(entry.arrivedAtMs).toLocaleTimeString()}
                   </span>
-                  <strong>+{entry.points} pts</strong>
+                  <strong>{entry.rank}{entry.rank === 1 ? 're' : 'e'} arrivée</strong>
                 </li>
               ))}
             {!entries.some((entry) => entry.arrivedAtMs) && (
@@ -605,7 +580,7 @@ function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
                     {teamInfo(entry.username).emblem} {entry.username} — {entry.attempts || 0} essai{(entry.attempts || 0) > 1 ? 's' : ''}
                   </span>
                   <strong>
-                    {entry.solved ? `✅ ${new Date(entry.solvedAtMs).toLocaleTimeString()} (+${entry.points})` : '…'}
+                    {entry.solved ? `✅ ${new Date(entry.solvedAtMs).toLocaleTimeString()}` : '…'}
                   </strong>
                 </li>
               ))}
@@ -648,7 +623,6 @@ function ParcoursAdmin({ parcours, locations, teams, busy, onAction }) {
         name: `Lieu ${list.length + 1}`,
         lat: Number(latlng.lat.toFixed(6)),
         lng: Number(latlng.lng.toFixed(6)),
-        points: 100,
         hint: '',
       },
     ]);
@@ -717,12 +691,6 @@ function ParcoursAdmin({ parcours, locations, teams, busy, onAction }) {
               placeholder="lng"
               type="text"
               value={dest.lng ?? ''}
-            />
-            <input
-              onChange={(e) => update(index, { points: e.target.value })}
-              placeholder="pts"
-              type="number"
-              value={dest.points ?? 100}
             />
           </div>
           <input
@@ -1014,45 +982,6 @@ export default function Admin() {
           <LaunchForm busy={busy} locations={data?.locations || []} onLaunch={launchChallenge} type={launchType} />
         </section>
 
-        {/* Scores */}
-        <section className="admin-section">
-          <h3 className="section-title">Scores</h3>
-          <div className="admin-scores">
-            {(data?.teams || []).map((team, index) => {
-              const info = teamInfo(team.username);
-              return (
-                <div className="admin-score-row" key={team.uid}>
-                  <span className="olympus-rank">{index + 1}.</span>
-                  <span>{info.emblem} <strong>{team.username}</strong> <small>({info.god})</small></span>
-                  <strong className="admin-score-value">{team.score}</strong>
-                  <div className="btn-group">
-                    {[25, 50, 100].map((points) => (
-                      <button className="btn btn-sm btn-secondary" disabled={busy} key={points} onClick={() => runAction('adjust-score', { uid: team.uid, delta: points, reason: 'Bonus admin' })} type="button">
-                        +{points}
-                      </button>
-                    ))}
-                    <button className="btn btn-sm btn-danger" disabled={busy} onClick={() => runAction('adjust-score', { uid: team.uid, delta: -25, reason: 'Malus admin' })} type="button">
-                      −25
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <button
-            className="btn btn-danger btn-sm"
-            disabled={busy}
-            onClick={() => {
-              if (window.confirm('Remettre TOUS les scores à zéro ?')) {
-                runAction('reset-scores', {}, 'Scores remis à zéro.');
-              }
-            }}
-            type="button"
-          >
-            ♻️ Remettre les scores à zéro
-          </button>
-        </section>
-
         {/* Map */}
         <section className="admin-section">
           <h3 className="section-title">Carte des équipes</h3>
@@ -1123,23 +1052,6 @@ export default function Admin() {
           </div>
         </section>
 
-        {/* Score log */}
-        <section className="admin-section">
-          <h3 className="section-title">Historique des points</h3>
-          <div className="score-log">
-            {(data?.scoreLog || []).map((entry, index) => (
-              <div className="score-log-row" key={index}>
-                <span>{new Date(entry.atMs).toLocaleTimeString()}</span>
-                <span>{teamInfo(entry.username).emblem} {entry.username}</span>
-                <span className="score-log-reason">{entry.reason}</span>
-                <strong className={entry.points >= 0 ? 'log-plus' : 'log-minus'}>
-                  {entry.points >= 0 ? '+' : ''}{entry.points}
-                </strong>
-              </div>
-            ))}
-            {!data?.scoreLog?.length && <p className="form-hint">Aucun point attribué pour l’instant.</p>}
-          </div>
-        </section>
       </main>
     </div>
   );

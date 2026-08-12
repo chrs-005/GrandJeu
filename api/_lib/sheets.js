@@ -106,7 +106,6 @@ const FIELD_ALIASES = {
     'nom', 'name', 'mission', 'missions', 'epreuve', 'epreuves', 'travaux',
   ],
   description: ['description', 'desc', 'details', 'detail', 'consigne', 'explication', 'regles'],
-  points: ['points', 'point', 'pts', 'score', 'valeur'],
   media: ['media', 'type', 'preuve', 'format', 'photovideo'],
   category: ['categorie', 'category', 'theme', 'groupe', 'dieu'],
   active: ['actif', 'active', 'visible', 'publie', 'published', 'enabled'],
@@ -161,14 +160,12 @@ export async function fetchSheetChallenges() {
       const title = cell('title');
       if (!title) return null;
       if (cols.active !== undefined && isFalsy(cell('active'))) return null;
-      const points = parseInt(cell('points'), 10);
       return {
         id: challengeIdFromTitle(title),
         source: 'sheet',
         row: i + 2,
         title,
         description: cell('description') || '',
-        points: Number.isFinite(points) ? points : 50,
         media: parseMediaKind(cell('media')),
         category: cell('category') || '',
       };
@@ -180,7 +177,7 @@ export async function fetchSheetChallenges() {
 
 // Append a challenge created in the admin console back into the sheet, so the
 // spreadsheet stays the single source of truth.
-export async function appendSheetChallenge({ title, description, points, media, category }) {
+export async function appendSheetChallenge({ title, description, media, category }) {
   const id = sheetId();
   if (!id) throw new Error('CHALLENGES_SHEET_ID manquant.');
 
@@ -196,7 +193,6 @@ export async function appendSheetChallenge({ title, description, points, media, 
   if (cols.title === undefined) row[0] = title;
   else put('title', title);
   put('description', description || '');
-  put('points', String(points ?? 50));
   put('media', media === 'any' ? 'photo/vidéo' : media === 'video' ? 'vidéo' : 'photo');
   put('category', category || '');
   put('active', 'oui');

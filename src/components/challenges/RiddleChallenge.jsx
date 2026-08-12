@@ -3,7 +3,7 @@ import { gameAction } from '../../services/api';
 
 export default function RiddleChallenge({ user, challenge, now, refresh }) {
   const [answer, setAnswer] = useState('');
-  const [feedback, setFeedback] = useState(null); // { correct, points, first }
+  const [feedback, setFeedback] = useState(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,9 +40,8 @@ export default function RiddleChallenge({ user, challenge, now, refresh }) {
       {solved ? (
         <div className="riddle-solved">
           <div className="reveal-banner reveal-good">
-            ✅ Le Sphinx s’incline ! {challenge.wonPoints || feedback?.points ? `+${challenge.wonPoints || feedback.points} pts` : ''}
+            ✅ Le Sphinx s’incline ! Réponse acceptée.
           </div>
-          {feedback?.first && <p className="points-chip">🏆 Premiers à répondre !</p>}
         </div>
       ) : running ? (
         <>

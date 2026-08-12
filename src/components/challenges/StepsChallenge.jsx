@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { gameAction } from '../../services/api';
 import { useStepCounter, isMotionSupported, requestMotionPermission } from '../../hooks/useStepCounter';
-import { teamInfo } from '../../config/gameConfig';
 
 export default function StepsChallenge({ user, challenge, now, serverNow, refresh }) {
   const [motionEnabled, setMotionEnabled] = useState(false);
@@ -31,6 +30,7 @@ export default function StepsChallenge({ user, challenge, now, serverNow, refres
   const running = challenge.status === 'active' && now >= challenge.startAtMs && now < challenge.endAtMs;
   const finished = challenge.status === 'ended' || now >= challenge.endAtMs;
   const shownSteps = Math.max(steps, challenge.ownSteps || 0);
+  const ownRank = challenge.ranking?.findIndex((entry) => entry.uid === user.uid) ?? -1;
 
   return (
     <div className="steps-challenge">
@@ -55,36 +55,29 @@ export default function StepsChallenge({ user, challenge, now, serverNow, refres
       {running && motionEnabled && <p className="hint-live">Garde le téléphone en main et cours !</p>}
       {error && <div className="alert alert-error">{error}</div>}
 
-      {challenge.leaderboardHidden ? (
-        <div className="veiled-board">
-          <span className="veiled-icon">🌫️</span>
-          <p>Les Moires ont voilé le classement…</p>
-          <p className="veiled-sub">Tout se joue maintenant. Courez !</p>
-        </div>
-      ) : (
-        challenge.leaderboard && (
-          <ol className="mini-board">
-            {challenge.leaderboard.map((entry, index) => {
-              const info = teamInfo(entry.username);
-              return (
-                <li className={entry.uid === user.uid ? 'is-me' : ''} key={entry.uid}>
-                  <span>
-                    {index + 1}. {info.emblem} {info.title}
-                  </span>
-                  <strong>{entry.steps} pas</strong>
-                </li>
-              );
-            })}
-          </ol>
-        )
-      )}
-
       {finished && (
         <div className="alert alert-info">
-          La course est terminée. Hermès rend son verdict — les points arrivent !
+          Course terminée. Ton compte final a été envoyé aux administrateurs.
           <button className="btn btn-ghost btn-sm" onClick={refresh} type="button">
             Actualiser
           </button>
+        </div>
+      )}
+
+      {finished && challenge.ranking?.length > 0 && (
+        <div className="steps-final">
+          <div className="trivia-rank-big">
+            {ownRank >= 0 ? `${ownRank + 1}${ownRank === 0 ? 'er' : 'e'}` : '—'}
+          </div>
+          <p>Classement final</p>
+          <ol className="mini-board">
+            {challenge.ranking.map((entry, index) => (
+              <li className={entry.uid === user.uid ? 'is-me' : ''} key={entry.uid}>
+                <span>{index + 1}. {entry.username}</span>
+                <strong>{entry.steps || 0} pas</strong>
+              </li>
+            ))}
+          </ol>
         </div>
       )}
     </div>

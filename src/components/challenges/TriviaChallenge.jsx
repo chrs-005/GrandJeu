@@ -38,16 +38,29 @@ export default function TriviaChallenge({ user, challenge, now, refresh }) {
 
   // -------------------------------------------------------------------------
   if (finished) {
-    const total = Object.values(ownAnswers).reduce((sum, a) => sum + (a.points || 0), 0);
     const correctCount = Object.values(ownAnswers).filter((a) => a.correct).length;
+    const ownRank = challenge.ranking?.findIndex((entry) => entry.uid === user.uid) ?? -1;
     return (
       <div className="trivia-final">
         <p className="oracle-quote">« L’Oracle a parlé. »</p>
-        <div className="trivia-score-big">{total} pts</div>
+        <div className="trivia-rank-big">
+          {ownRank >= 0 ? `${ownRank + 1}${ownRank === 0 ? 'er' : 'e'}` : '—'}
+        </div>
+        <p>Classement final</p>
         <p>
           {correctCount} bonne{correctCount > 1 ? 's' : ''} réponse{correctCount > 1 ? 's' : ''} sur{' '}
           {questions.length}
         </p>
+        {challenge.ranking?.length > 0 && (
+          <ol className="mini-board">
+            {challenge.ranking.map((entry, index) => (
+              <li className={entry.uid === user.uid ? 'is-me' : ''} key={entry.uid}>
+                <span>{index + 1}. {entry.username}</span>
+                <strong>{entry.correct}/{questions.length}</strong>
+              </li>
+            ))}
+          </ol>
+        )}
       </div>
     );
   }
@@ -60,7 +73,7 @@ export default function TriviaChallenge({ user, challenge, now, refresh }) {
         <p>
           Première question dans <strong>{formatRemaining(nextQuestion.startAtMs - now)}</strong>
         </p>
-        <p className="hint-live">Réponds vite : plus tu es rapide, plus tu gagnes de points !</p>
+        <p className="hint-live">Les bonnes réponses comptent, puis la rapidité départage les équipes.</p>
       </div>
     );
   }
@@ -76,7 +89,7 @@ export default function TriviaChallenge({ user, challenge, now, refresh }) {
             <p className="trivia-question-text">{lastFinished.q}</p>
             <div className={`reveal-banner ${own?.correct ? 'reveal-good' : own ? 'reveal-bad' : 'reveal-none'}`}>
               {own?.correct
-                ? `✅ Correct ! +${own.points} pts`
+                ? '✅ Correct !'
                 : own
                   ? '❌ Raté…'
                   : '⏳ Pas de réponse…'}

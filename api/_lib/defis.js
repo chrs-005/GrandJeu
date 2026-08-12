@@ -2,7 +2,7 @@
 //
 // Challenges come from the Google Sheet (live, so the list can be edited on
 // game day) merged with any created straight in the admin console. A challenge
-// can be made "hot": timed, pinned to the top and worth bonus points.
+// can be made "hot": timed and pinned to the top.
 
 import { fetchSheetChallenges, sheetConfigured } from './sheets.js';
 
@@ -54,7 +54,6 @@ export function mergeChallenges(sheetChallenges, state, now = Date.now()) {
         ...challenge,
         hot: isHot,
         hotEndAtMs: isHot ? hot.endAtMs : null,
-        bonusPoints: isHot ? hot.bonusPoints || 0 : 0,
       };
     })
     .sort((a, b) => {
@@ -90,7 +89,6 @@ export function buildDefisView(challenges, items) {
       submission: own
         ? {
             status: own.status || 'pending',
-            points: own.points || 0,
             atMs: own.atMs,
             mediaUrl: own.mediaUrl,
             mediaType: own.mediaType,

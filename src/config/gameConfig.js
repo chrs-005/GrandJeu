@@ -1,4 +1,9 @@
 // Central game configuration: team identities, challenge theming, defaults.
+import bisonLogo from '../assets/bison.png';
+import fauconLogo from '../assets/faucon.png';
+import leopardLogo from '../assets/leopard.png';
+import pandaLogo from '../assets/panda.png';
+import requinLogo from '../assets/requin.png';
 
 // Each scout team account is the champion of a Greek god.
 export const TEAMS = {
@@ -9,6 +14,7 @@ export const TEAMS = {
     color: '#e2a83d',
     neon: '#ffcf3f', // vivid variant for map overlays (dark basemap)
     motto: 'La foudre frappe les plus rapides.',
+    logo: fauconLogo,
   },
   leopard: {
     god: 'Artémis',
@@ -17,6 +23,7 @@ export const TEAMS = {
     color: '#94a860',
     neon: '#a4e05a',
     motto: 'Aucune proie n’échappe à la meute.',
+    logo: leopardLogo,
   },
   panda: {
     god: 'Athéna',
@@ -25,6 +32,7 @@ export const TEAMS = {
     color: '#a887c9',
     neon: '#c98aff',
     motto: 'La ruse triomphe de la force.',
+    logo: pandaLogo,
   },
   requin: {
     god: 'Poséidon',
@@ -33,6 +41,7 @@ export const TEAMS = {
     color: '#6fa3c0',
     neon: '#48d3ff',
     motto: 'Rien ne résiste à la vague.',
+    logo: requinLogo,
   },
   bison: {
     god: 'Arès',
@@ -41,6 +50,7 @@ export const TEAMS = {
     color: '#c05b41',
     neon: '#ff6a52',
     motto: 'La charge ne s’arrête jamais.',
+    logo: bisonLogo,
   },
 };
 
@@ -72,7 +82,7 @@ export const CHALLENGE_META = {
     title: 'L’Oracle de Delphes',
     tagline: 'La Pythie teste votre savoir.',
     playerIntro:
-      'Les vapeurs sacrées de Delphes s’élèvent. Répondez aux questions de l’Oracle — plus vous êtes rapides, plus les dieux vous récompensent.',
+      'Les vapeurs sacrées de Delphes s’élèvent. Répondez aux questions de l’Oracle : les bonnes réponses et la rapidité détermineront le classement final.',
   },
   bounty: {
     god: 'Méduse',
@@ -104,7 +114,7 @@ export const CHALLENGE_META = {
     title: 'Le Fil d’Ariane',
     tagline: 'Suivez le fil jusqu’au bout du labyrinthe.',
     playerIntro:
-      'Ariane a tendu son fil à travers le labyrinthe du monde. Suivez la flèche et sentez le fil chauffer à mesure que vous approchez. Les premières équipes arrivées gagnent la faveur des dieux !',
+      'Ariane a tendu son fil à travers le labyrinthe du monde. Suivez la flèche et sentez le fil chauffer à mesure que vous approchez.',
   },
   territory: {
     god: 'Arès',
@@ -120,7 +130,7 @@ export const CHALLENGE_META = {
     title: 'L’Énigme du Sphinx',
     tagline: 'Répondez ou restez sur place.',
     playerIntro:
-      'Le Sphinx bloque votre route, comme jadis celle d’Œdipe. Résolvez son énigme pour passer. Le premier à répondre gagne la faveur des dieux.',
+      'Le Sphinx bloque votre route, comme jadis celle d’Œdipe. Résolvez son énigme pour passer.',
   },
 };
 
@@ -135,8 +145,6 @@ export function challengeMeta(type) {
     }
   );
 }
-
-export const RANK_POINTS = [100, 70, 50, 35, 20];
 
 export const APP_NAME = 'L’Olympe';
 export const APP_SUBTITLE = 'Le Grand Jeu des Dieux';

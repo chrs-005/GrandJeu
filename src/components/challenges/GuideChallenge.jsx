@@ -114,9 +114,9 @@ export default function GuideChallenge({ user, challenge, refresh }) {
           <span className="guide-arrived-icon">🏛️</span>
           <p className="oracle-quote">Vous avez suivi le fil jusqu’au bout !</p>
           <p>
-            <span className="points-chip">
+            <span className="badge badge-success">
               {challenge.arrived.rank}
-              {challenge.arrived.rank === 1 ? 'ʳᵉ' : 'ᵉ'} équipe arrivée — +{challenge.arrived.points} pts
+              {challenge.arrived.rank === 1 ? 'ʳᵉ' : 'ᵉ'} équipe arrivée
             </span>
           </p>
         </div>
@@ -186,7 +186,7 @@ export default function GuideChallenge({ user, challenge, refresh }) {
                 <span>
                   {entry.rank}. {info.emblem} {info.title}
                 </span>
-                <strong>+{entry.points} pts</strong>
+                <strong>{new Date(entry.atMs).toLocaleTimeString()}</strong>
               </li>
             );
           })}

@@ -144,30 +144,6 @@ export default function ParcoursScreen({ user, parcours, refresh, onFound }) {
     }
   }, [pos, route.length, nav, routing, parcours.done, requestRoute]);
 
-  if (parcours.done) {
-    return (
-      <div className="parcours-screen">
-        <div className="found-done">
-          <span className="found-icon">🏛️</span>
-          <h2 className="found-title">Parcours terminé !</h2>
-          <p className="found-sub">Vous avez retrouvé tous les lieux d’Ariane.</p>
-        </div>
-        {parcours.found?.length > 0 && (
-          <ol className="mini-board">
-            {parcours.found.map((f, i) => (
-              <li key={`${f.name}-${i}`}>
-                <span>
-                  {i + 1}. {f.name}
-                </span>
-                <strong>+{f.points}</strong>
-              </li>
-            ))}
-          </ol>
-        )}
-      </div>
-    );
-  }
-
   const warmth = nav ? warmthFor(nav.remaining) : null;
   const arrowRotation = heading != null && nav ? nav.bearing - heading : null;
   const arrived = nav && nav.atEnd && nav.toTarget <= ARRIVAL_M;
@@ -193,6 +169,18 @@ export default function ParcoursScreen({ user, parcours, refresh, onFound }) {
         setError('Impossible de valider le lieu.');
       });
   }, [arrived, pos, parcours.done, user, refresh, onFound]);
+
+  if (parcours.done) {
+    return (
+      <div className="parcours-screen">
+        <div className="found-done">
+          <span className="found-icon">🏛️</span>
+          <h2 className="found-title">Parcours terminé !</h2>
+          <p className="found-sub">Vous avez retrouvé tous les lieux d’Ariane.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="parcours-screen">

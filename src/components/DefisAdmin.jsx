@@ -8,9 +8,8 @@ import { formatRemaining } from '../hooks/useNow';
 export default function DefisAdmin({ user, now, busy, onAction }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
-  const [draft, setDraft] = useState({ title: '', description: '', points: 50, media: 'any', category: '' });
+  const [draft, setDraft] = useState({ title: '', description: '', media: 'any', category: '' });
   const [hotMinutes, setHotMinutes] = useState(15);
-  const [hotBonus, setHotBonus] = useState(50);
 
   const load = useCallback(async () => {
     try {
@@ -35,7 +34,7 @@ export default function DefisAdmin({ user, now, busy, onAction }) {
   async function create() {
     if (!draft.title.trim()) return;
     const result = await onAction('defi-create', draft, 'Défi ajouté !');
-    if (result) setDraft({ title: '', description: '', points: 50, media: 'any', category: '' });
+    if (result) setDraft({ title: '', description: '', media: 'any', category: '' });
     await load();
   }
 
@@ -82,25 +81,22 @@ export default function DefisAdmin({ user, now, busy, onAction }) {
               <strong>{teamInfo(sub.username).emblem} {sub.username}</strong>
               <span>{sub.title}</span>
               <span className={`badge ${sub.status === 'valid' ? 'badge-success' : sub.status === 'rejected' ? 'badge-error' : 'badge-neutral'}`}>
-                {sub.status === 'valid' ? `Validé +${sub.points}` : sub.status === 'rejected' ? 'Refusé' : 'À juger'}
+                {sub.status === 'valid' ? 'Accepté' : sub.status === 'rejected' ? 'Refusé' : 'À juger'}
               </span>
             </div>
             <div className="review-buttons">
-              {[sub.bonusPoints ? sub.points || 100 : 100, 70, 50].map((p, i) => (
-                <button
-                  className="btn btn-sm btn-secondary"
-                  disabled={busy}
-                  key={`${p}-${i}`}
-                  onClick={() => run('defi-review', { uid: sub.uid, challengeId: sub.challengeId, points: p, status: 'valid' })}
-                  type="button"
-                >
-                  +{p}
-                </button>
-              ))}
+              <button
+                className="btn btn-sm btn-secondary"
+                disabled={busy}
+                onClick={() => run('defi-review', { uid: sub.uid, challengeId: sub.challengeId, status: 'valid' })}
+                type="button"
+              >
+                ✓ Accepter
+              </button>
               <button
                 className="btn btn-sm btn-danger"
                 disabled={busy}
-                onClick={() => run('defi-review', { uid: sub.uid, challengeId: sub.challengeId, points: 0, status: 'rejected' })}
+                onClick={() => run('defi-review', { uid: sub.uid, challengeId: sub.challengeId, status: 'rejected' })}
                 type="button"
               >
                 ✗
@@ -124,7 +120,7 @@ export default function DefisAdmin({ user, now, busy, onAction }) {
             <div className="defis-admin-info">
               <strong>{defi.title}</strong>
               <span>
-                {defi.points} pts · {defi.media} · {defi.source === 'sheet' ? '📄 feuille' : '⚙️ console'}
+                {defi.media} · {defi.source === 'sheet' ? '📄 feuille' : '⚙️ console'}
                 {defi.hot && ` · 🔥 ${formatRemaining(defi.hotEndAtMs - now)}`}
               </span>
             </div>
@@ -134,7 +130,7 @@ export default function DefisAdmin({ user, now, busy, onAction }) {
                   ❄️ Stop
                 </button>
               ) : (
-                <button className="btn btn-sm btn-danger" disabled={busy} onClick={() => run('defi-hot', { challengeId: defi.id, title: defi.title, minutes: Number(hotMinutes), bonusPoints: Number(hotBonus) }, 'Défi brûlant lancé !')} type="button">
+                <button className="btn btn-sm btn-danger" disabled={busy} onClick={() => run('defi-hot', { challengeId: defi.id, title: defi.title, minutes: Number(hotMinutes) }, 'Défi brûlant lancé !')} type="button">
                   🔥 Brûlant
                 </button>
               )}
@@ -148,11 +144,8 @@ export default function DefisAdmin({ user, now, busy, onAction }) {
 
       <div className="form-grid">
         <label>
-          Défi brûlant — durée (min) / bonus
-          <div className="dest-fields">
-            <input min="1" max="240" onChange={(e) => setHotMinutes(e.target.value)} type="number" value={hotMinutes} />
-            <input min="0" max="1000" onChange={(e) => setHotBonus(e.target.value)} type="number" value={hotBonus} />
-          </div>
+          Défi brûlant — durée (min)
+          <input min="1" max="240" onChange={(e) => setHotMinutes(e.target.value)} type="number" value={hotMinutes} />
         </label>
       </div>
 
@@ -168,7 +161,6 @@ export default function DefisAdmin({ user, now, busy, onAction }) {
             <option value="photo">Photo</option>
             <option value="video">Vidéo</option>
           </select>
-          <input onChange={(e) => setDraft({ ...draft, points: e.target.value })} placeholder="pts" type="number" value={draft.points} />
         </div>
         <button className="btn btn-primary" disabled={busy || !draft.title.trim()} onClick={create} type="button">
           ➕ Ajouter {data?.sheetConfigured ? '(écrit dans la feuille)' : ''}

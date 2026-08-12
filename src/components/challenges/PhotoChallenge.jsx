@@ -49,7 +49,6 @@ export default function PhotoChallenge({ user, challenge, now, refresh }) {
       {own && statusInfo && (
         <div className="submission-status">
           <span className={`badge ${statusInfo.cls}`}>{statusInfo.text}</span>
-          {own.points > 0 && <span className="points-chip">+{own.points} pts</span>}
         </div>
       )}
 

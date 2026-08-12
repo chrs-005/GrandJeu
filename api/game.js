@@ -3,8 +3,6 @@ import {
   FieldValue,
   verifyUser,
   loadGameState,
-  getAdminUids,
-  addPoints,
   normalizeAnswer,
   invalidateStateCache,
   sendError,
@@ -77,20 +75,18 @@ async function buildChallengeView(db, challenge, uid) {
 
   switch (challenge.type) {
     case 'steps': {
-      const hideFromMs = challenge.endAtMs - (config.hideFinalSeconds || 0) * 1000;
-      const hidden = running && now >= hideFromMs;
-      const leaderboard = hidden
-        ? null
-        : Object.entries(board)
-            .map(([id, entry]) => ({ uid: id, username: entry.username, steps: entry.steps || 0 }))
-            .sort((a, b) => b.steps - a.steps);
       return {
         ...base,
-        hideFinalSeconds: config.hideFinalSeconds || 0,
-        hideFromMs,
-        leaderboardHidden: hidden,
-        leaderboard,
         ownSteps: own?.steps || 0,
+        ranking: !running
+          ? Object.entries(board)
+              .map(([id, entry]) => ({
+                uid: id,
+                username: entry.username,
+                steps: entry.steps || 0,
+              }))
+              .sort((a, b) => b.steps - a.steps || a.username.localeCompare(b.username))
+          : null,
       };
     }
 
@@ -101,7 +97,6 @@ async function buildChallengeView(db, challenge, uid) {
           index: idx,
           q: q.q,
           options: q.options,
-          points: q.points,
           timeLimitSec: q.timeLimitSec,
           startAtMs: q.startAtMs,
           endAtMs: q.endAtMs,
@@ -114,7 +109,19 @@ async function buildChallengeView(db, challenge, uid) {
         questionCount: questions.length,
         questions,
         ownAnswers: own?.answers || {},
-        ownTriviaPoints: own?.points || 0,
+        ranking: !running
+          ? Object.entries(board)
+              .map(([id, entry]) => ({
+                uid: id,
+                username: entry.username,
+                correct: Object.values(entry.answers || {}).filter((answer) => answer.correct).length,
+                totalTimeMs: Object.entries(entry.answers || {}).reduce((sum, [index, answer]) => {
+                  const startedAt = config.questions?.[Number(index)]?.startAtMs || answer.atMs;
+                  return sum + Math.max(0, answer.atMs - startedAt);
+                }, 0),
+              }))
+              .sort((a, b) => b.correct - a.correct || a.totalTimeMs - b.totalTimeMs)
+          : null,
       };
     }
 
@@ -125,7 +132,7 @@ async function buildChallengeView(db, challenge, uid) {
         target: config.target || null,
         mission: config.mission || null,
         ownSubmission: own
-          ? { atMs: own.submittedAtMs, status: own.status || 'pending', points: own.points || 0 }
+          ? { atMs: own.submittedAtMs, status: own.status || 'pending' }
           : null,
         submittedCount: Object.values(board).filter((e) => e.submittedAtMs).length,
       };
@@ -140,7 +147,7 @@ async function buildChallengeView(db, challenge, uid) {
         prompt: assignment?.prompt || null,
         drawingSubmitted: Boolean(own?.drawingAtMs),
         ownGuess: own?.guess || null,
-        guessResult: own?.guessPoints != null ? own.guessPoints : null,
+        guessStatus: own?.guessStatus || null,
       };
       if (phase !== 'draw' && assignment?.sourceUid) {
         const sourceBoard = board[assignment.sourceUid];
@@ -164,7 +171,6 @@ async function buildChallengeView(db, challenge, uid) {
           uid: id,
           username: entry.username,
           rank: entry.rank,
-          points: entry.points || 0,
           atMs: entry.arrivedAtMs,
         }))
         .sort((a, b) => a.atMs - b.atMs);
@@ -174,7 +180,7 @@ async function buildChallengeView(db, challenge, uid) {
         targetLng: config.lng,
         radiusM: config.radiusM,
         arrived: own?.arrivedAtMs
-          ? { atMs: own.arrivedAtMs, rank: own.rank, points: own.points || 0 }
+          ? { atMs: own.arrivedAtMs, rank: own.rank }
           : null,
         arrivals,
       };
@@ -212,10 +218,8 @@ async function buildChallengeView(db, challenge, uid) {
       return {
         ...base,
         text: config.text,
-        points: config.points,
         solved: Boolean(own?.solved),
         solvedAtMs: own?.solvedAtMs || null,
-        wonPoints: own?.points || 0,
         attempts: own?.attempts || 0,
         solvedCount: Object.values(board).filter((e) => e.solved).length,
       };
@@ -246,14 +250,7 @@ async function handleGet(req, res) {
     });
   }
 
-  const [{ scores, challenge, parcours, secret }, adminUids] = await Promise.all([
-    loadGameState(db),
-    getAdminUids(db),
-  ]);
-  const teams = Object.entries(scores)
-    .filter(([uid]) => !adminUids.has(uid))
-    .map(([uid, entry]) => ({ uid, username: entry.username, score: entry.score || 0 }))
-    .sort((a, b) => b.score - a.score || a.username.localeCompare(b.username));
+  const { challenge, parcours, secret } = await loadGameState(db);
 
   const challengeView = await buildChallengeView(db, challenge, decoded.uid);
   const parcoursViewState = normalizeParcours(parcours, [decoded.uid]);
@@ -265,9 +262,7 @@ async function handleGet(req, res) {
       uid: decoded.uid,
       username: user.username,
       role: user.role || 'user',
-      score: scores[decoded.uid]?.score || 0,
     },
-    teams,
     challenge: challengeView,
     parcours: buildParcoursView(parcoursViewState, decoded.uid),
     // Only whether an owl is worth tapping — never the riddle itself.
@@ -416,18 +411,11 @@ async function handlePost(req, res) {
       }
 
       const correct = choice === question.correct;
-      const remaining = question.endAtMs - now;
-      const ratio = remaining / (question.timeLimitSec * 1000);
-      const points = correct ? Math.round(question.points * (0.5 + 0.5 * ratio)) : 0;
 
       await saveBoardEntry(db, challenge.id, uid, {
         username,
-        answers: { ...existingAnswers, [idx]: { choice, correct, points, atMs: now } },
-        points: (challenge.board?.[uid]?.points || 0) + points,
+        answers: { ...existingAnswers, [idx]: { choice, correct, atMs: now } },
       });
-      if (points > 0) {
-        await addPoints(db, uid, username, points, `Oracle Q${idx + 1}`, challenge.id);
-      }
       return res.status(200).json({ ok: true, accepted: true });
     }
 
@@ -446,7 +434,6 @@ async function handlePost(req, res) {
         submittedAtMs: previous.submittedAtMs || now,
         updatedAtMs: now,
         status: 'pending',
-        points: previous.points || 0,
       });
       return res.status(200).json({ ok: true });
     }
@@ -503,7 +490,7 @@ async function handlePost(req, res) {
         assertRunning(challenge, now);
         const previous = challenge.board?.[uid];
         if (previous?.arrivedAtMs) {
-          return { alreadyArrived: true, rank: previous.rank, points: previous.points || 0 };
+          return { alreadyArrived: true, rank: previous.rank };
         }
         const cfg = challenge.config;
         const distance = haversineMeters(latitude, longitude, cfg.lat, cfg.lng);
@@ -512,18 +499,13 @@ async function handlePost(req, res) {
           return { tooFar: true, distance: Math.round(distance) };
         }
         const rank = Object.values(challenge.board || {}).filter((e) => e.arrivedAtMs).length + 1;
-        const rankPoints = cfg.rankPoints || [];
-        const points = rankPoints[rank - 1] || 0;
         tx.update(ref, {
-          [`board.${uid}`]: { username, arrivedAtMs: now, rank, points },
+          [`board.${uid}`]: { username, arrivedAtMs: now, rank },
         });
-        return { arrived: true, rank, points };
+        return { arrived: true, rank };
       });
       if (result.arrived) {
         invalidateStateCache();
-        if (result.points > 0) {
-          await addPoints(db, uid, username, result.points, 'Fil d’Ariane', body.challengeId);
-        }
       }
       return res.status(200).json({ ok: true, ...result });
     }
@@ -611,9 +593,7 @@ async function handlePost(req, res) {
               storagePath,
               atMs: now,
               status: 'pending',
-              points: 0,
               wasHot: Boolean(challenge.hot),
-              bonusPoints: challenge.bonusPoints || 0,
             },
           },
           updatedAt: FieldValue.serverTimestamp(),
@@ -656,7 +636,6 @@ async function handlePost(req, res) {
           Object.values(parcours.progress || {}).filter((p) =>
             (p.found || []).some((f) => f.destId === dest.id)
           ).length + 1;
-        const points = dest.points || 0;
         const nextIndex = index + 1;
         const nextDestId = sequence[nextIndex] || null;
 
@@ -672,7 +651,7 @@ async function handlePost(req, res) {
                 index: nextIndex,
                 found: [
                   ...(progress.found || []),
-                  { destId: dest.id, name: dest.name, atMs: now, points, rank },
+                  { destId: dest.id, name: dest.name, atMs: now, rank },
                 ],
                 route: '',
                 routeStraight: false,
@@ -686,7 +665,6 @@ async function handlePost(req, res) {
         return {
           found: true,
           name: dest.name,
-          points,
           rank,
           from: { lat: latitude, lng: longitude },
           nextDestId,
@@ -701,10 +679,6 @@ async function handlePost(req, res) {
       }
 
       invalidateStateCache();
-      if (outcome.points > 0) {
-        await addPoints(db, uid, username, outcome.points, `Fil d’Ariane — ${outcome.name}`);
-      }
-
       // The next leg starts from their current GPS position.
       if (outcome.nextDestId) {
         const fresh = (await ref.get()).data();
@@ -724,7 +698,6 @@ async function handlePost(req, res) {
         ok: true,
         found: true,
         name: outcome.name,
-        points: outcome.points,
         rank: outcome.rank,
         nextName: outcome.nextName,
         finished: outcome.finished,
@@ -791,17 +764,14 @@ async function handlePost(req, res) {
       }
 
       const anySolved = Object.values(challenge.board || {}).some((e) => e.solved);
-      const points = (challenge.config.points || 0) + (!anySolved ? challenge.config.firstBonus || 0 : 0);
       await saveBoardEntry(db, challenge.id, uid, {
         ...previous,
         username,
         attempts,
         solved: true,
         solvedAtMs: now,
-        points,
       });
-      await addPoints(db, uid, username, points, 'Énigme du Sphinx', challenge.id);
-      return res.status(200).json({ ok: true, correct: true, points, first: !anySolved });
+      return res.status(200).json({ ok: true, correct: true, first: !anySolved });
     }
 
     default:
