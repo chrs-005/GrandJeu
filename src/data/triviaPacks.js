@@ -79,12 +79,12 @@ export const TRIVIA_PACKS = [
       },
       {
         type: 'text',
-        q: 'Troupe edition: who would be the funniest/worst roommate on camp, and why?',
+        q: 'Who wouldn\'t you let your daughter date in the troupe and why?',
         timeLimitSec: 15,
       },
       {
         type: 'text',
-        q: 'Cheftaines edition: give a funny award title for each cheftaine.',
+        q: 'Kiss Marry Kill: Cheftaine Edition',
         timeLimitSec: 15,
       },
       {
