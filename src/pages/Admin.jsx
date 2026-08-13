@@ -5,18 +5,12 @@ import { fetchAdmin, adminAction } from '../services/api';
 import { useNow, formatRemaining } from '../hooks/useNow';
 import { teamInfo, challengeMeta, CHALLENGE_META } from '../config/gameConfig';
 import { TRIVIA_PACKS } from '../data/triviaPacks';
-import { DRAWING_PROMPTS, PHOTO_MISSIONS, RIDDLE_PRESETS } from '../data/presets';
+import { DRAWING_PROMPTS, PHOTO_MISSIONS } from '../data/presets';
 import { mpToLatLngPolygons, lngLatToLatLng, multiPolygonAreaM2, formatArea } from '../utils/geo';
 import SatMap from '../components/SatMap';
 import DefisAdmin from '../components/DefisAdmin';
 
 const FALLBACK_CENTER = { lat: 33.8938, lng: 35.5018 };
-const FIXED_FINAL_DESTINATION_ID = 'arianne-final';
-
-function editableParcoursDestinations(parcours) {
-  return (parcours?.destinations || []).filter((d) => d.id !== FIXED_FINAL_DESTINATION_ID);
-}
-
 function formatAge(updatedAt) {
   if (!updatedAt) return '?';
   const seconds = Math.max(0, Math.round((Date.now() - updatedAt) / 1000));
@@ -128,10 +122,6 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
   const [missionMinutes, setMissionMinutes] = useState(10);
   const [drawMinutes, setDrawMinutes] = useState(3);
   const [guessMinutes, setGuessMinutes] = useState(2);
-  const [riddlePreset, setRiddlePreset] = useState(0);
-  const [riddleText, setRiddleText] = useState(RIDDLE_PRESETS[0].text);
-  const [riddleAnswers, setRiddleAnswers] = useState(RIDDLE_PRESETS[0].answers.join(', '));
-  const [riddleMinutes, setRiddleMinutes] = useState(10);
   const [guidePin, setGuidePin] = useState(null);
   const [guideCoords, setGuideCoords] = useState('');
   const [guideRadius, setGuideRadius] = useState(30);
@@ -185,12 +175,6 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
           drawSeconds: Number(drawMinutes) * 60,
           guessSeconds: Number(guessMinutes) * 60,
           prompts: DRAWING_PROMPTS,
-        });
-      case 'riddle':
-        return onLaunch(type, {
-          text: riddleText,
-          answers: riddleAnswers.split(',').map((a) => a.trim()).filter(Boolean),
-          durationSeconds: Number(riddleMinutes) * 60,
         });
       case 'guide':
         return onLaunch(type, {
@@ -299,42 +283,6 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
           <p className="form-hint">
             Chaque équipe reçoit un sujet au hasard, puis devine le dessin d’une autre équipe.
           </p>
-        </div>
-      )}
-
-      {type === 'riddle' && (
-        <div className="form-grid">
-          <label>
-            Préréglage
-            <select
-              onChange={(e) => {
-                const idx = Number(e.target.value);
-                setRiddlePreset(idx);
-                if (idx >= 0) {
-                  setRiddleText(RIDDLE_PRESETS[idx].text);
-                  setRiddleAnswers(RIDDLE_PRESETS[idx].answers.join(', '));
-                }
-              }}
-              value={riddlePreset}
-            >
-              {RIDDLE_PRESETS.map((preset, idx) => (
-                <option key={preset.label} value={idx}>{preset.label}</option>
-              ))}
-              <option value={-1}>— Énigme personnalisée —</option>
-            </select>
-          </label>
-          <label>
-            Énigme
-            <textarea maxLength={1000} onChange={(e) => setRiddleText(e.target.value)} rows={3} value={riddleText} />
-          </label>
-          <label>
-            Réponses acceptées (séparées par des virgules)
-            <input onChange={(e) => setRiddleAnswers(e.target.value)} type="text" value={riddleAnswers} />
-          </label>
-          <label>
-            Durée (minutes)
-            <input min="1" max="240" onChange={(e) => setRiddleMinutes(e.target.value)} type="number" value={riddleMinutes} />
-          </label>
         </div>
       )}
 
@@ -674,188 +622,78 @@ function ChallengeBoard({ challenge, media, now, onAction, busy, locations, team
         </>
       )}
 
-      {/* Riddle */}
-      {challenge.type === 'riddle' && (
-        <>
-          <p className="form-hint">
-            Énigme : {challenge.config.text} — Réponses : {challenge.config.answers?.join(', ')}
-          </p>
-          <ol className="mini-board">
-            {entries
-              .sort((a, b) => (a.solvedAtMs || Infinity) - (b.solvedAtMs || Infinity))
-              .map((entry) => (
-                <li key={entry.uid}>
-                  <span>
-                    {teamInfo(entry.username).emblem} {entry.username} — {entry.attempts || 0} essai{(entry.attempts || 0) > 1 ? 's' : ''}
-                  </span>
-                  <strong>
-                    {entry.solved ? `✅ ${new Date(entry.solvedAtMs).toLocaleTimeString()}` : '…'}
-                  </strong>
-                </li>
-              ))}
-            {!entries.length && <li><span>Aucun essai pour l’instant.</span></li>}
-          </ol>
-        </>
-      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Le Fil d'Ariane — destinations and live team progress
+// Le Fil d'Ariane — read-only live route monitoring
 // ---------------------------------------------------------------------------
-function ParcoursAdmin({ parcours, locations, teams, busy, onAction }) {
-  const nameByUid = useMemo(
-    () => Object.fromEntries((teams || []).map((t) => [t.uid, t.username])),
-    [teams]
-  );
-  const [draft, setDraft] = useState(() => editableParcoursDestinations(parcours));
-  const [dirty, setDirty] = useState(false);
+const ARIANNE_COLORS = ['#e03d20', '#2c78a8', '#4f8c52', '#b46a17', '#8f5aa8', '#167f7a'];
 
-  // Adopt server state until the admin starts editing (avoids clobbering typing).
-  useEffect(() => {
-    if (!dirty) setDraft(editableParcoursDestinations(parcours));
-  }, [parcours, dirty]);
+function arianneDeviceLabel(username, index) {
+  const deviceId = String(username || '').match(/^arianne-([a-f0-9]{6})/i)?.[1];
+  return deviceId ? `Ariane ${deviceId.toUpperCase()}` : username || `Ariane ${index + 1}`;
+}
 
-  const mapCenter = useMemo(() => locationsCenter(locations), [locations]);
-
-  function update(index, patch) {
-    setDirty(true);
-    setDraft((list) => list.map((d, i) => (i === index ? { ...d, ...patch } : d)));
-  }
-
-  function addDestination(latlng) {
-    setDirty(true);
-    setDraft((list) => [
-      ...list,
-      {
-        name: `Lieu ${list.length + 1}`,
-        lat: Number(latlng.lat.toFixed(6)),
-        lng: Number(latlng.lng.toFixed(6)),
-        hint: '',
-      },
-    ]);
-  }
-
-  function remove(index) {
-    setDirty(true);
-    setDraft((list) => list.filter((_, i) => i !== index));
-  }
-
-  async function save(active = true) {
-    await onAction('parcours-setup', { destinations: draft, active }, 'Parcours enregistré !');
-    setDirty(false);
-  }
-
-  const pins = draft
-    .filter((d) => Number.isFinite(Number(d.lat)) && Number.isFinite(Number(d.lng)))
-    .map((d, i) => ({
-      id: `dest-${i}`,
-      lat: Number(d.lat),
-      lng: Number(d.lng),
-      emblem: String(i + 1),
-      color: '#e2a83d',
-      label: d.name,
-    }));
+function ParcoursAdmin({ parcours }) {
+  const sessions = (parcours?.teams || []).filter((team) => team.track?.length);
+  const markers = sessions.map((team, index) => {
+    const point = team.track[team.track.length - 1];
+    return {
+      id: team.uid,
+      lat: point[1],
+      lng: point[0],
+      emblem: '🧵',
+      color: ARIANNE_COLORS[index % ARIANNE_COLORS.length],
+      label: arianneDeviceLabel(team.username, index),
+      big: true,
+      pulse: Date.now() - team.lastSeenAtMs < 30_000,
+    };
+  });
+  const lines = sessions.flatMap((team, index) => {
+    const color = ARIANNE_COLORS[index % ARIANNE_COLORS.length];
+    return [
+      team.route?.length > 1
+        ? { id: `expected-${team.uid}`, points: lngLatToLatLng(team.route), color, weight: 3, dashed: true, opacity: 0.55 }
+        : null,
+      team.track?.length > 1
+        ? { id: `walked-${team.uid}`, points: lngLatToLatLng(team.track), color, weight: 5, casing: true }
+        : null,
+    ].filter(Boolean);
+  });
+  const center = markers.length
+    ? {
+        lat: markers.reduce((sum, marker) => sum + marker.lat, 0) / markers.length,
+        lng: markers.reduce((sum, marker) => sum + marker.lng, 0) / markers.length,
+      }
+    : FALLBACK_CENTER;
 
   return (
     <div className="parcours-admin">
-      <p className="form-hint">
-        🧵 Touchez la carte pour ajouter un lieu. Chaque équipe visite tous les lieux, mais dans un
-        ordre décalé. Le dernier lieu est fixe et s’ajoute tout seul.
-      </p>
-
-      <SatMap
-        center={mapCenter}
-        fit="markers"
-        height={280}
-        markers={[...teamMarkers(locations), ...pins]}
-        onPick={addDestination}
-        zoom={15}
-      />
-
-      {draft.map((dest, index) => (
-        <div className="dest-row" key={dest.id || `new-${index}`}>
-          <div className="dest-head">
-            <strong>#{index + 1}</strong>
-            <input
-              onChange={(e) => update(index, { name: e.target.value })}
-              placeholder="Nom du lieu"
-              type="text"
-              value={dest.name || ''}
-            />
-            <button className="btn btn-sm btn-danger" onClick={() => remove(index)} type="button">
-              ✕
-            </button>
-          </div>
-          <div className="dest-fields">
-            <input
-              onChange={(e) => update(index, { lat: e.target.value })}
-              placeholder="lat"
-              type="text"
-              value={dest.lat ?? ''}
-            />
-            <input
-              onChange={(e) => update(index, { lng: e.target.value })}
-              placeholder="lng"
-              type="text"
-              value={dest.lng ?? ''}
-            />
-          </div>
-          <input
-            onChange={(e) => update(index, { hint: e.target.value })}
-            placeholder="Indice affiché à l’arrivée (optionnel) — ex : sous le banc bleu"
-            type="text"
-            value={dest.hint || ''}
+      {sessions.length ? (
+        <>
+          <SatMap
+            center={center}
+            fit={lines.length ? 'vectors' : 'markers'}
+            height={380}
+            markers={markers}
+            vectors={lines.length ? { lines } : null}
+            zoom={16}
           />
-        </div>
-      ))}
-
-      <div className="btn-group">
-        <button className="btn btn-primary" disabled={busy} onClick={() => save(true)} type="button">
-          💾 Enregistrer & activer
-        </button>
-        {parcours?.active ? (
-          <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onAction('parcours-toggle', { active: false }, 'Parcours en pause.')} type="button">
-            ⏸ Mettre en pause
-          </button>
-        ) : (
-          <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onAction('parcours-toggle', { active: true }, 'Parcours actif !')} type="button">
-            ▶️ Activer
-          </button>
-        )}
-        <button
-          className="btn btn-danger btn-sm"
-          disabled={busy}
-          onClick={() => {
-            if (window.confirm('Remettre toutes les équipes au premier lieu ?')) {
-              onAction('parcours-reset', {}, 'Progression remise à zéro.');
-            }
-          }}
-          type="button"
-        >
-          ♻️ Réinitialiser
-        </button>
-      </div>
-
-      {dirty && <p className="form-hint">⚠️ Modifications non enregistrées.</p>}
-
-      {parcours?.teams?.length > 0 && (
-        <ol className="mini-board">
-          {parcours.teams.map((team) => {
-            const info = teamInfo(nameByUid[team.uid] || team.uid);
-            return (
-              <li key={team.uid}>
-                <span>
-                  {info.emblem} {info.title}
-                </span>
-                <strong>
-                  {team.done ? '🏁 terminé' : `${team.index}/${team.total} — ${team.currentName || '…'}`}
-                </strong>
-              </li>
-            );
-          })}
-        </ol>
+          <div className="arianne-session-list">
+            {sessions.map((team, index) => (
+              <div className="arianne-session" key={team.uid}>
+                <span className="route-swatch" style={{ background: ARIANNE_COLORS[index % ARIANNE_COLORS.length] }} />
+                <strong>{arianneDeviceLabel(team.username, index)}</strong>
+                <span>vu il y a {formatAge(team.lastSeenAtMs)}</span>
+              </div>
+            ))}
+          </div>
+          <p className="form-hint">Trait plein : chemin parcouru. Pointillés : chemin à suivre.</p>
+        </>
+      ) : (
+        <p className="form-hint">Aucun appareil n’a encore ouvert Le Fil d’Ariane.</p>
       )}
     </div>
   );
@@ -876,8 +714,6 @@ export default function Admin() {
   const [withImages, setWithImages] = useState(true);
   const [notifTitle, setNotifTitle] = useState('');
   const [notifBody, setNotifBody] = useState('');
-  // Per-team route visibility on the console map (unchecked = hidden).
-  const [hiddenRoutes, setHiddenRoutes] = useState({});
   // Hidden owl location.
   const offsetRef = useRef(0);
   const withImagesRef = useRef(withImages);
@@ -942,33 +778,6 @@ export default function Admin() {
 
   const challenge = data?.challenge;
   const showChallenge = challenge && data?.currentChallengeId === challenge.id;
-
-  // Each team's current Fil d'Ariane path, for the console map.
-  const routeByUid = useMemo(() => {
-    const out = {};
-    (data?.parcours?.teams || []).forEach((team) => {
-      if (team.route?.length) out[team.uid] = team.route;
-    });
-    return out;
-  }, [data?.parcours]);
-
-  const nameByUid = useMemo(
-    () => Object.fromEntries((data?.teams || []).map((t) => [t.uid, t.username])),
-    [data?.teams]
-  );
-
-  const mapVectors = useMemo(() => {
-    const lines = Object.entries(routeByUid)
-      .filter(([uid]) => hiddenRoutes[uid] !== true)
-      .map(([uid, points]) => ({
-        id: `route-${uid}`,
-        points: lngLatToLatLng(points),
-        color: teamInfo(nameByUid[uid]).neon,
-        weight: 4,
-        casing: true,
-      }));
-    return lines.length ? { lines } : null;
-  }, [routeByUid, hiddenRoutes, nameByUid]);
 
   return (
     <div className="app-page admin-page">
@@ -1065,16 +874,8 @@ export default function Admin() {
 
         {/* Le Fil d'Ariane */}
         <section className="admin-section">
-          <h3 className="section-title">
-            🧵 Le Fil d’Ariane {data?.parcours?.active ? '(actif)' : '(inactif)'}
-          </h3>
-          <ParcoursAdmin
-            busy={busy}
-            locations={data?.locations || []}
-            onAction={runAction}
-            parcours={data?.parcours}
-            teams={data?.teams}
-          />
+          <h3 className="section-title">🧵 Le Fil d’Ariane</h3>
+          <ParcoursAdmin parcours={data?.parcours} />
         </section>
 
         {/* Launch */}
@@ -1106,28 +907,14 @@ export default function Admin() {
             fit="markers"
             height={340}
             markers={teamMarkers(data?.locations || [])}
-            vectors={mapVectors}
             zoom={16}
           />
           <div className="location-list">
             {(data?.locations || []).map((location) => {
               const info = teamInfo(location.username);
-              const teamRoute = routeByUid[location.uid];
-              const shown = hiddenRoutes[location.uid] !== true;
               return (
                 <div className="location-list-row" key={location.uid}>
-                  <label className="route-toggle">
-                    <input
-                      checked={Boolean(teamRoute?.length) && shown}
-                      disabled={!teamRoute?.length}
-                      onChange={() =>
-                        setHiddenRoutes((prev) => ({ ...prev, [location.uid]: shown }))
-                      }
-                      type="checkbox"
-                    />
-                    <span className="route-swatch" style={{ background: info.neon }} />
-                    <strong>{info.emblem} {location.username}</strong>
-                  </label>
+                  <strong>{info.emblem} {location.username}</strong>
                   <span className="location-age">il y a {formatAge(location.updatedAt)}</span>
                   <a
                     className="btn btn-sm btn-secondary"

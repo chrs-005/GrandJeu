@@ -42,7 +42,11 @@ export function normalizeParcours(parcours, teamUids = []) {
 
   knownUids.forEach((uid) => {
     const existing = sequences[uid] || [];
-    sequences[uid] = [...existing.filter((id) => id !== FIXED_FINAL_DESTINATION.id), FIXED_FINAL_DESTINATION.id];
+    const existingRegular = existing.filter((id) => id !== FIXED_FINAL_DESTINATION.id);
+    const regular = existingRegular.length
+      ? existingRegular
+      : withoutFixedFinal(destinations).map((destination) => destination.id);
+    sequences[uid] = [...regular, FIXED_FINAL_DESTINATION.id];
     progress[uid] = progress[uid] || { index: 0, found: [], route: '', routeStraight: false };
   });
 
@@ -115,26 +119,29 @@ export function buildParcoursAdminView(parcours) {
     } catch {
       route = [];
     }
+    let track = [];
+    try {
+      track = progress.track ? JSON.parse(progress.track) : [];
+    } catch {
+      track = [];
+    }
     return {
       uid,
+      username: progress.username || uid,
       index,
       total: sequence.length,
       done: index >= sequence.length,
       currentName: target?.name || null,
       routeStraight: Boolean(progress.routeStraight),
       route,
+      track,
+      lastSeenAtMs: progress.trackAtMs || null,
+      accuracy: progress.trackAccuracy ?? null,
       found: (progress.found || []).map((f) => ({ name: f.name, atMs: f.atMs })),
     };
   });
   return {
-    active: Boolean(parcours.active),
-    destinations: (parcours.destinations || []).map((d) => ({
-      id: d.id,
-      name: d.name,
-      lat: d.lat,
-      lng: d.lng,
-      hint: d.hint || null,
-    })),
+    active: true,
     teams,
   };
 }

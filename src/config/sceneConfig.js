@@ -12,7 +12,6 @@ export const SCENE_LINES = {
   guide: 53,
   parcours: 53,
   territory: 41,
-  riddle: 62.8,
 };
 
 // Where the hidden owl sits on the home artboard, as a % of the scene box.

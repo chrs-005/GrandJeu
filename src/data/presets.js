@@ -27,27 +27,3 @@ export const PHOTO_MISSIONS = [
   'Recréez la scène : Zeus foudroie un membre de l’équipe',
   'Toute l’équipe cachée derrière un seul arbre / poteau',
 ];
-
-// Riddle presets for L'Énigme du Sphinx (answers = accepted variants).
-export const RIDDLE_PRESETS = [
-  {
-    label: 'L’énigme classique du Sphinx',
-    text: 'Quel être marche à quatre pattes le matin, à deux pattes le midi et à trois pattes le soir ?',
-    answers: ['l’homme', 'homme', 'l’humain', 'humain', 'l’être humain'],
-  },
-  {
-    label: 'Écho',
-    text: 'Je vis dans les montagnes et les grottes. Je parle toutes les langues mais je n’ai rien à dire : je ne fais que répéter. Qui suis-je ?',
-    answers: ['écho', 'l’écho', 'un écho'],
-  },
-  {
-    label: 'L’ombre',
-    text: 'Je te suis toute la journée sous Hélios, mais je disparais quand la nuit tombe. Qui suis-je ?',
-    answers: ['ombre', 'l’ombre', 'mon ombre', 'une ombre'],
-  },
-  {
-    label: 'Le feu de Prométhée',
-    text: 'Prométhée m’a volé aux dieux. Je meurs si je bois, je vis si je mange. Qui suis-je ?',
-    answers: ['feu', 'le feu'],
-  },
-];

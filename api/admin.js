@@ -10,12 +10,7 @@ import {
   withErrorHandling,
 } from './_lib/core.js';
 import { SEED_RADIUS_M } from './_lib/territory.js';
-import {
-  FIXED_FINAL_DESTINATION,
-  buildSequences,
-  buildParcoursAdminView,
-  withFixedFinalDestination,
-} from './_lib/parcours.js';
+import { buildParcoursAdminView } from './_lib/parcours.js';
 import {
   loadSheetChallenges,
   loadDefisState,
@@ -25,15 +20,12 @@ import {
 } from './_lib/defis.js';
 import { appendSheetChallenge, sheetConfigured } from './_lib/sheets.js';
 
-const ARIANNE_EMAIL = 'arianne@grandjeu.local';
-
 const PUSH_BY_TYPE = {
   steps: { title: '🏃 La Course d’Hermès !', body: 'Courez ! Le messager des dieux vous défie. Ouvrez l’app !' },
   trivia: { title: '🔮 L’Oracle de Delphes', body: 'La Pythie vous convoque. Répondez vite à ses questions !' },
   bounty: { title: '🐍 Le Regard de Méduse', body: 'Méduse a désigné sa proie… Photographiez-la avant d’être pétrifiés !' },
   photo: { title: '💪 Les Travaux d’Héraclès', body: 'Une nouvelle épreuve héroïque vous attend. Ouvrez l’app !' },
   drawguess: { title: '🎨 Le Défi des Muses', body: 'Les Muses réclament une œuvre. À vos pinceaux !' },
-  riddle: { title: '🦁 L’Énigme du Sphinx', body: 'Le Sphinx bloque votre route. Résolvez son énigme !' },
   guide: { title: '🧭 Le Fil d’Ariane', body: 'Un lieu secret vous appelle… Suivez le fil, il chauffe !' },
   territory: { title: '⚔️ La Conquête d’Arès', body: 'À vos frontières ! Marchez, encerclez, conquérez le terrain.' },
 };
@@ -147,22 +139,6 @@ function buildChallenge(type, cfg, teamUids) {
         startAtMs,
         endAtMs: drawEndAtMs + guessSeconds * 1000,
         config: { drawSeconds, guessSeconds, drawEndAtMs, assignments },
-      };
-    }
-
-    case 'riddle': {
-      const durationSeconds = num(cfg.durationSeconds, 600, 30, 14400);
-      const text = String(cfg.text || '').trim().slice(0, 1000);
-      const answers = (cfg.answers || []).map((a) => String(a).trim()).filter(Boolean);
-      if (!text || !answers.length) throw new Error('Énigme ou réponses manquantes.');
-      return {
-        startAtMs,
-        endAtMs: startAtMs + durationSeconds * 1000,
-        config: {
-          durationSeconds,
-          text,
-          answers,
-        },
       };
     }
 
@@ -571,92 +547,6 @@ async function handlePost(req, res, verified) {
 
     case 'defi-refresh-sheet': {
       invalidateSheetCache();
-      return res.status(200).json({ ok: true });
-    }
-
-    // -- Le Fil d'Ariane (parcours) --------------------------------------------
-    case 'parcours-setup': {
-      const teamUids = (await loadTeams(db)).map((team) => team.uid);
-      const ref = db.collection('gameState').doc('parcours');
-      const destinations = withFixedFinalDestination((body.destinations || [])
-        .map((d, i) => {
-          const name = String(d.name || '').trim().slice(0, 80);
-          const lat = Number(d.lat);
-          const lng = Number(d.lng);
-          if (!name || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-          const id = String(d.id || '') || `d${Date.now().toString(36)}${i}`;
-          return {
-            id,
-            name,
-            lat,
-            lng,
-            hint: String(d.hint || '').trim().slice(0, 200) || null,
-          };
-        })
-        .filter(Boolean));
-
-      if (!destinations.length) return sendError(res, 400, 'Ajoutez au moins une destination.');
-
-      const regularDestIds = destinations
-        .filter((d) => d.id !== FIXED_FINAL_DESTINATION.id)
-        .map((d) => d.id);
-      const sequences = buildSequences(regularDestIds, teamUids);
-      teamUids.forEach((uid) => {
-        sequences[uid] = [...(sequences[uid] || []), FIXED_FINAL_DESTINATION.id];
-      });
-      const progress = {};
-      teamUids.forEach((uid) => {
-        progress[uid] = { index: 0, found: [], route: '', routeStraight: false };
-      });
-
-      await ref.set({
-        active: body.active !== false,
-        destinations,
-        sequences,
-        progress,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      invalidateStateCache();
-
-      if (body.active !== false) {
-        const arianneSnap = await db
-          .collection('users')
-          .where('email', '==', ARIANNE_EMAIL)
-          .limit(1)
-          .get();
-        const arianneUid = arianneSnap.empty ? null : arianneSnap.docs[0].id;
-        if (arianneUid) {
-          await sendPush(db, {
-            title: '🧵 Le Fil d’Ariane',
-            body: 'Ariane a tendu son fil… Ouvrez l’app et suivez la flèche !',
-            url: '/arianne',
-            targetUid: arianneUid,
-          });
-        }
-      }
-      return res.status(200).json({ ok: true, destinations });
-    }
-
-    case 'parcours-toggle': {
-      await db.collection('gameState').doc('parcours').set(
-        { active: Boolean(body.active), updatedAt: FieldValue.serverTimestamp() },
-        { merge: true }
-      );
-      invalidateStateCache();
-      return res.status(200).json({ ok: true });
-    }
-
-    // Wipe progress but keep destinations.
-    case 'parcours-reset': {
-      const ref = db.collection('gameState').doc('parcours');
-      const snap = await ref.get();
-      if (!snap.exists) return sendError(res, 404, 'Aucun parcours.');
-      const progress = {};
-      Object.keys(snap.data().sequences || {}).forEach((uid) => {
-        progress[uid] = { index: 0, found: [], route: '', routeStraight: false };
-      });
-      await ref.set({ progress, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-      invalidateStateCache();
       return res.status(200).json({ ok: true });
     }
 

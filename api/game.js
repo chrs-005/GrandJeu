@@ -3,7 +3,6 @@ import {
   FieldValue,
   verifyUser,
   loadGameState,
-  normalizeAnswer,
   invalidateStateCache,
   sendError,
   withErrorHandling,
@@ -217,16 +216,6 @@ async function buildChallengeView(db, challenge, uid) {
       return view;
     }
 
-    case 'riddle':
-      return {
-        ...base,
-        text: config.text,
-        solved: Boolean(own?.solved),
-        solvedAtMs: own?.solvedAtMs || null,
-        attempts: own?.attempts || 0,
-        solvedCount: Object.values(board).filter((e) => e.solved).length,
-      };
-
     default:
       return base;
   }
@@ -268,7 +257,7 @@ async function handleGet(req, res) {
     },
     challenge: challengeView,
     parcours: buildParcoursView(parcoursViewState, decoded.uid),
-    // Only whether an owl is worth tapping — never the riddle itself.
+    // Only whether an owl is worth tapping — never the secret itself.
     secret: secret?.active
       ? {
           active: true,
@@ -627,6 +616,58 @@ async function handlePost(req, res) {
     }
 
     // -- parcours (Le Fil d'Ariane) -------------------------------------------------
+    // Record the real trail walked by each Ariane device for the read-only admin map.
+    case 'parcours-track': {
+      const { latitude, longitude, accuracy } = body;
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+        return sendError(res, 400, 'Position invalide.');
+      }
+
+      const ref = db.collection('gameState').doc('parcours');
+      const outcome = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const parcours = normalizeParcours(snap.exists ? snap.data() : null, [uid]);
+        const previous = parcours.progress?.[uid] || { index: 0, found: [] };
+        let track = [];
+        try {
+          track = previous.track ? JSON.parse(previous.track) : [];
+        } catch {
+          track = [];
+        }
+
+        const last = track[track.length - 1];
+        const moved = last ? haversineMeters(last[1], last[0], latitude, longitude) : Infinity;
+        if (last && moved < 4 && now - (last[2] || 0) < 30_000) {
+          return { recorded: false };
+        }
+
+        track = [...track, [longitude, latitude, now]].slice(-800);
+        tx.set(
+          ref,
+          {
+            active: true,
+            destinations: parcours.destinations,
+            sequences: parcours.sequences,
+            progress: {
+              [uid]: {
+                ...previous,
+                username,
+                track: JSON.stringify(track),
+                trackAtMs: now,
+                trackAccuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : null,
+              },
+            },
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+        return { recorded: true };
+      });
+
+      invalidateStateCache();
+      return res.status(200).json({ ok: true, ...outcome });
+    }
+
     // GPS arrival at the current destination: award it, then compute the
     // walking route to the next one.
     case 'parcours-arrive': {
@@ -765,36 +806,6 @@ async function handlePost(req, res) {
       );
       invalidateStateCache();
       return res.status(200).json({ ok: true, points: route.points.length, straight: route.straight });
-    }
-
-    // -- riddle -------------------------------------------------------------------
-    case 'riddle-answer': {
-      const challenge = await loadActiveChallenge(db, body.challengeId, 'riddle');
-      assertRunning(challenge, now);
-      const previous = challenge.board?.[uid] || {};
-      if (previous.solved) {
-        return res.status(200).json({ ok: true, correct: true, alreadySolved: true });
-      }
-      const normalized = normalizeAnswer(body.answer);
-      if (!normalized) return sendError(res, 400, 'Écris une réponse.');
-      const accepted = (challenge.config.answers || []).map(normalizeAnswer);
-      const correct = accepted.includes(normalized);
-      const attempts = (previous.attempts || 0) + 1;
-
-      if (!correct) {
-        await saveBoardEntry(db, challenge.id, uid, { ...previous, username, attempts });
-        return res.status(200).json({ ok: true, correct: false, attempts });
-      }
-
-      const anySolved = Object.values(challenge.board || {}).some((e) => e.solved);
-      await saveBoardEntry(db, challenge.id, uid, {
-        ...previous,
-        username,
-        attempts,
-        solved: true,
-        solvedAtMs: now,
-      });
-      return res.status(200).json({ ok: true, correct: true, first: !anySolved });
     }
 
     default:

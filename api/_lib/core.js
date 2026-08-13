@@ -114,7 +114,10 @@ export async function loadTeams(db) {
   const usersSnap = await db.collection('users').get();
   return usersSnap.docs
     .map((doc) => ({ uid: doc.id, ...doc.data() }))
-    .filter((user) => user.role !== 'admin')
+    .filter((user) => {
+      const email = String(user.email || '').toLowerCase();
+      return user.role !== 'admin' && email !== 'arianne@grandjeu.local' && !email.startsWith('arianne-');
+    })
     .map((user) => ({
       uid: user.uid,
       username: user.username || user.email?.split('@')[0] || user.uid,

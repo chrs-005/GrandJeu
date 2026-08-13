@@ -25,6 +25,7 @@ export default function ParcoursScreen({ user, parcours, refresh, onFound }) {
   const [routing, setRouting] = useState(false);
   const [rerouted, setRerouted] = useState(false);
   const lastRouteReqRef = useRef(0);
+  const lastTrackAtRef = useRef(0);
   const wayOffSinceRef = useRef(0);
   const arrivingRef = useRef(false);
 
@@ -49,14 +50,24 @@ export default function ParcoursScreen({ user, parcours, refresh, onFound }) {
     }
     const id = navigator.geolocation.watchPosition(
       (p) => {
-        setPos({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy });
+        const nextPos = { lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy };
+        setPos(nextPos);
         setError('');
+        const now = Date.now();
+        if (now - lastTrackAtRef.current >= 10_000) {
+          lastTrackAtRef.current = now;
+          gameAction(user, 'parcours-track', {
+            latitude: nextPos.lat,
+            longitude: nextPos.lng,
+            accuracy: nextPos.accuracy,
+          }).catch(() => {});
+        }
       },
       (err) => setError(err.message || 'Active le GPS pour suivre le fil.'),
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
     );
     return () => navigator.geolocation.clearWatch(id);
-  }, []);
+  }, [user]);
 
   // Compass heading (iOS needs an explicit permission tap).
   useEffect(() => {

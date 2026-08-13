@@ -124,14 +124,6 @@ export const CHALLENGE_META = {
     playerIntro:
       'Arès offre le monde à qui saura le prendre ! Marchez pour tracer votre sillage, puis revenez sur vos terres pour capturer toute la zone encerclée. Volez les terres des autres — le plus grand empire l’emporte.',
   },
-  riddle: {
-    god: 'Le Sphinx',
-    icon: '🦁',
-    title: 'L’Énigme du Sphinx',
-    tagline: 'Répondez ou restez sur place.',
-    playerIntro:
-      'Le Sphinx bloque votre route, comme jadis celle d’Œdipe. Résolvez son énigme pour passer.',
-  },
 };
 
 export function challengeMeta(type) {

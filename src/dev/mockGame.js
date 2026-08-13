@@ -1,7 +1,7 @@
 // Dev-only mock game states: open the app with ?mock=<type> to preview any
 // challenge UI without the serverless backend (vite dev has no /api runtime).
 // Types: hub, steps, steps-veiled, trivia, bounty, photo, drawguess,
-// drawguess-guess, riddle, guide, territory, territory-end
+// drawguess-guess, guide, territory, territory-end
 
 const TEAM_FIXTURES = [
   { uid: 'u-faucon', username: 'faucon' },
@@ -151,18 +151,6 @@ export function buildMockGame(type) {
         ownGuess: null,
         guessStatus: null,
         sourceDrawing: SAMPLE_DRAWING,
-      };
-      break;
-    case 'riddle':
-      base.challenge = {
-        ...common,
-        type: 'riddle',
-        endAtMs: now + 300_000,
-        text: 'Quel être marche à quatre pattes le matin, à deux pattes le midi et à trois pattes le soir ?',
-        solved: false,
-        solvedAtMs: null,
-        attempts: 1,
-        solvedCount: 1,
       };
       break;
     case 'guide':

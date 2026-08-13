@@ -33,12 +33,6 @@ export default function ParcoursFoundOverlay({ found, onClose }) {
             <h2 className="found-title">Parcours terminé</h2>
             <p className="found-sub">Vous avez déjà retrouvé tous les lieux.</p>
           </>
-        ) : found.inactive ? (
-          <>
-            <span className="found-icon">🧭</span>
-            <h2 className="found-title">Aucune chasse en cours</h2>
-            <p className="found-sub">Le Fil d’Ariane n’est pas actif pour l’instant.</p>
-          </>
         ) : found.tooFar ? (
           <>
             <span className="found-icon">🧭</span>

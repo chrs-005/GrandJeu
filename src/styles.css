@@ -552,9 +552,6 @@ select:focus {
 .challenge-territory .challenge-header { background-image: url('./assets/bg-ares.jpg'); }
 .challenge-territory { --accent: #e06a4a; --accent-shadow: rgba(30, 8, 5, 0.55); }
 
-.challenge-riddle .challenge-header { background-image: url('./assets/bg-sphinx.jpg'); }
-.challenge-riddle { --accent: #c98f3a; --accent-shadow: rgba(36, 22, 8, 0.45); }
-
 /* --------------------------------------------------------------------------
    Countdown — cream cut-out plaque
    -------------------------------------------------------------------------- */
@@ -958,7 +955,7 @@ select:focus {
 }
 
 /* --------------------------------------------------------------------------
-   Draw & guess / riddle
+   Draw & guess
    -------------------------------------------------------------------------- */
 .guess-form {
   display: flex;
@@ -969,30 +966,6 @@ select:focus {
 
 .drawguess-results { color: var(--ink); text-align: center; }
 .result-lines p { margin: 6px 0; }
-
-.riddle-text {
-  background: var(--cream);
-  border: none;
-  border-left: 8px solid var(--oxide);
-  border-radius: 8px;
-  box-shadow: var(--cut-line), 6px 7px 0 var(--accent-shadow);
-  color: var(--ink);
-  font-size: 19px;
-  font-style: italic;
-  line-height: 1.5;
-  margin: 0;
-  padding: 16px 16px 16px 18px;
-  transform: rotate(0.4deg);
-}
-
-.riddle-sphinx {
-  display: block;
-  font-size: 30px;
-  font-style: normal;
-  margin-bottom: 6px;
-}
-
-.riddle-solved { text-align: center; }
 
 /* --------------------------------------------------------------------------
    Drawing tool
@@ -1500,7 +1473,6 @@ select:focus {
 .challenge-drawguess { --artboard: url('./assets/bg-muses.jpg'); }
 .challenge-guide     { --artboard: url('./assets/bg-ariadne.jpg'); }
 .challenge-territory { --artboard: url('./assets/bg-ares.jpg'); }
-.challenge-riddle    { --artboard: url('./assets/bg-sphinx.jpg'); }
 .rituals-screen      { --artboard: url('./assets/bg-home.jpg'); --accent: #d8a44a; }
 
 /* Full-bleed immersive page: no page padding stealing vertical room */
@@ -1863,7 +1835,6 @@ select:focus {
 .app-view .mission-box { padding: 10px 12px; }
 .app-view .mission-target { font-size: 17px; margin: 3px 0; }
 .app-view .mission-detail { font-size: 13.5px; }
-.app-view .riddle-text { font-size: 15px; padding: 12px; }
 .app-view .oracle-quote { font-size: 17px; }
 
 .app-view .steps-value { font-size: 40px; }
@@ -1957,7 +1928,7 @@ select:focus {
 /* ==========================================================================
    FILL THE ZONE — content below the art line stretches to the tab bar:
    the challenge wrapper becomes a flex column and its "main" element
-   (options grid, canvas, map, riddle, counter…) drinks the leftover space.
+   (options grid, canvas, map, counter…) drinks the leftover space.
    ========================================================================== */
 .app-view .challenge-body > * {
   display: flex;
@@ -1991,15 +1962,6 @@ select:focus {
 .app-view .trivia-reveal,
 .app-view .trivia-final {
   justify-content: center;
-}
-
-/* Riddle: the Sphinx's question fills, centered */
-.app-view .riddle-text {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 0;
 }
 
 /* Photo / bounty: the capture block fills and centers */
@@ -2336,37 +2298,17 @@ select:focus {
 .tab-btn .tab-label { overflow: hidden; text-overflow: ellipsis; }
 .tab-btn:not(.is-active) .tab-label { font-size: 11px; }
 
-/* Admin: Fil d'Ariane destination editor */
+/* Admin: read-only Fil d'Ariane route monitor */
 .parcours-admin { display: flex; flex-direction: column; gap: 10px; }
 
-.dest-row {
-  background: var(--cream);
-  border-radius: 8px;
-  box-shadow: var(--cut-line);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
-}
+.arianne-session-list { display: grid; gap: 6px; }
+.arianne-session { align-items: center; display: flex; gap: 8px; }
+.arianne-session strong { flex: 1; }
+.arianne-session > span:last-child { color: var(--ink-muted); font-size: 13px; }
 
-.dest-head { align-items: center; display: flex; gap: 8px; }
-.dest-head strong { color: var(--ink-muted); flex: 0 0 auto; }
-.dest-head input { flex: 1; }
-.dest-fields { display: grid; gap: 6px; grid-template-columns: 1fr 1fr 70px; }
-
-/* Admin map: per-team route toggles + open-in-Maps */
+/* Admin map: team positions + open-in-Maps */
 .location-list-row { align-items: center; gap: 10px; }
-
-.route-toggle {
-  align-items: center;
-  cursor: pointer;
-  display: flex;
-  flex: 1;
-  gap: 8px;
-  min-width: 0;
-}
-
-.route-toggle input { flex: 0 0 auto; width: auto; }
+.location-list-row > strong { flex: 1; }
 
 .route-swatch {
   border: 1px solid var(--ink);

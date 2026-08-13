@@ -18,13 +18,12 @@ function FilPage({ currentUser, data, refresh, onFound }) {
     <section className="challenge-shell parcours-shell arianne-shell" style={{ '--seam': `${seam}%` }}>
       <div className="challenge-header challenge-scene" />
       <div className="challenge-body">
-        {parcours?.active ? (
+        {parcours ? (
           <ParcoursScreen onFound={onFound} parcours={parcours} refresh={refresh} user={currentUser} />
         ) : (
           <div className="arianne-empty">
             <span className="found-icon">🧵</span>
-            <h2 className="found-title">Le Fil dort encore</h2>
-            <p className="found-sub">Ariane n’a pas encore ouvert le chemin.</p>
+            <h2 className="found-title">Préparation du chemin…</h2>
           </div>
         )}
       </div>

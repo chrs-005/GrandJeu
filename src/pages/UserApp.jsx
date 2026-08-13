@@ -27,7 +27,6 @@ import StepsChallenge from '../components/challenges/StepsChallenge';
 import TriviaChallenge from '../components/challenges/TriviaChallenge';
 import PhotoChallenge from '../components/challenges/PhotoChallenge';
 import DrawGuessChallenge from '../components/challenges/DrawGuessChallenge';
-import RiddleChallenge from '../components/challenges/RiddleChallenge';
 import GuideChallenge from '../components/challenges/GuideChallenge';
 import TerritoryChallenge from '../components/challenges/TerritoryChallenge';
 
@@ -37,7 +36,6 @@ const CHALLENGE_COMPONENTS = {
   bounty: PhotoChallenge,
   photo: PhotoChallenge,
   drawguess: DrawGuessChallenge,
-  riddle: RiddleChallenge,
   guide: GuideChallenge,
   territory: TerritoryChallenge,
 };
