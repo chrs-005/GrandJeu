@@ -86,6 +86,34 @@ function adminTerritoryAreas(challenge) {
     .sort((a, b) => b.areaM2 - a.areaM2);
 }
 
+function triviaAnswerText(question, answer) {
+  if (!answer) return '...';
+  if ((question.type || 'choice') === 'choice') {
+    return question.options?.[answer.choice] || `Choix ${answer.choice + 1}`;
+  }
+  if (question.type === 'list') return (answer.items || []).join(' / ');
+  return answer.text || '...';
+}
+
+function triviaCorrectCount(entry) {
+  return Object.values(entry.answers || {}).filter((answer) => answer.correct).length;
+}
+
+function triviaResponseTime(entry, questions) {
+  return Object.entries(entry.answers || {}).reduce((sum, [index, answer]) => {
+    const startedAt = questions?.[Number(index)]?.startAtMs || answer.atMs;
+    return sum + Math.max(0, answer.atMs - startedAt);
+  }, 0);
+}
+
+function currentTriviaQuestion(questions, now) {
+  const activeIndex = questions.findIndex((q) => now >= q.startAtMs && now < q.endAtMs);
+  if (activeIndex >= 0) return { index: activeIndex, question: questions[activeIndex], active: true };
+  const nextIndex = questions.findIndex((q) => now < q.startAtMs);
+  if (nextIndex >= 0) return { index: nextIndex, question: questions[nextIndex], active: false };
+  return { index: questions.length - 1, question: questions[questions.length - 1], active: false };
+}
+
 // ---------------------------------------------------------------------------
 // Launch forms
 // ---------------------------------------------------------------------------
@@ -93,7 +121,7 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
   const [stepDuration, setStepDuration] = useState(120);
   const [hideFinal, setHideFinal] = useState(45);
   const [packId, setPackId] = useState(TRIVIA_PACKS[0].id);
-  const [questionCount, setQuestionCount] = useState(8);
+  const [questionCount, setQuestionCount] = useState(TRIVIA_PACKS[0].questions.length);
   const [bountyTarget, setBountyTarget] = useState('');
   const [bountyMinutes, setBountyMinutes] = useState(15);
   const [mission, setMission] = useState(PHOTO_MISSIONS[0]);
@@ -201,7 +229,14 @@ function LaunchForm({ type, onLaunch, busy, locations }) {
         <div className="form-grid">
           <label>
             Pack de questions
-            <select onChange={(e) => setPackId(e.target.value)} value={packId}>
+            <select
+              onChange={(e) => {
+                const nextPack = TRIVIA_PACKS.find((pack) => pack.id === e.target.value) || TRIVIA_PACKS[0];
+                setPackId(nextPack.id);
+                setQuestionCount(nextPack.questions.length);
+              }}
+              value={packId}
+            >
               {TRIVIA_PACKS.map((pack) => (
                 <option key={pack.id} value={pack.id}>
                   {pack.name} ({pack.questions.length} questions)
@@ -380,14 +415,26 @@ function ReviewButtons({ onReview, status }) {
   );
 }
 
-function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
+function ChallengeBoard({ challenge, media, now, onAction, busy, locations, teams = [] }) {
   const meta = challengeMeta(challenge.type);
   const board = challenge.board || {};
   const entries = Object.entries(board).map(([uid, entry]) => ({ uid, ...entry }));
   const running = challenge.status === 'active' && now < challenge.endAtMs;
+  const triviaQuestions = challenge.type === 'trivia' ? challenge.config.questions || [] : [];
+  const triviaCurrent = challenge.type === 'trivia' ? currentTriviaQuestion(triviaQuestions, now) : null;
+  const triviaActiveAnswered = triviaCurrent?.question
+    ? entries.filter((entry) => entry.answers?.[triviaCurrent.index]).length
+    : 0;
+  const manualTriviaQuestions = triviaQuestions
+    .map((question, index) => ({ ...question, index }))
+    .filter((question) => question.manual);
 
   function review(uid, status) {
     onAction('review', { challengeId: challenge.id, uid, status });
+  }
+
+  function reviewTrivia(uid, questionIndex, status) {
+    onAction('trivia-review', { challengeId: challenge.id, uid, questionIndex, status });
   }
 
   return (
@@ -403,6 +450,16 @@ function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
           {running && (
             <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onAction('end', { challengeId: challenge.id })} type="button">
               🏁 Terminer maintenant
+            </button>
+          )}
+          {running && challenge.type === 'trivia' && triviaCurrent?.active && (
+            <button
+              className="btn btn-secondary btn-sm"
+              disabled={busy}
+              onClick={() => onAction('trivia-skip', { challengeId: challenge.id, questionIndex: triviaCurrent.index })}
+              type="button"
+            >
+              Passer la question
             </button>
           )}
           <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => onAction('clear')} type="button">
@@ -428,25 +485,77 @@ function ChallengeBoard({ challenge, media, now, onAction, busy, locations }) {
 
       {/* Trivia */}
       {challenge.type === 'trivia' && (
-        <ol className="mini-board">
-          {entries
-            .sort((a, b) => {
-              const correctA = Object.values(a.answers || {}).filter((answer) => answer.correct).length;
-              const correctB = Object.values(b.answers || {}).filter((answer) => answer.correct).length;
-              const timeA = Object.entries(a.answers || {}).reduce((sum, [index, answer]) =>
-                sum + Math.max(0, answer.atMs - (challenge.config.questions?.[Number(index)]?.startAtMs || answer.atMs)), 0);
-              const timeB = Object.entries(b.answers || {}).reduce((sum, [index, answer]) =>
-                sum + Math.max(0, answer.atMs - (challenge.config.questions?.[Number(index)]?.startAtMs || answer.atMs)), 0);
-              return correctB - correctA || timeA - timeB;
-            })
-            .map((entry, index) => (
-              <li key={entry.uid}>
-                <span>{index + 1}. {teamInfo(entry.username).emblem} {entry.username}</span>
-                <strong>{Object.values(entry.answers || {}).filter((answer) => answer.correct).length} bonnes réponses</strong>
-              </li>
-            ))}
-          {!entries.length && <li><span>Aucune réponse pour l’instant.</span></li>}
-        </ol>
+        <div className="trivia-admin">
+          {triviaCurrent?.question && (
+            <div className="trivia-admin-current">
+              <span className="badge badge-neutral">
+                {triviaCurrent.active ? 'Question active' : 'Prochaine question'}
+              </span>
+              <strong>
+                Q{triviaCurrent.index + 1}/{triviaQuestions.length}: {triviaCurrent.question.q}
+              </strong>
+              <span>
+                {triviaActiveAnswered}/{teams.length || entries.length || 0} réponses reçues
+              </span>
+            </div>
+          )}
+
+          <ol className="mini-board">
+            {entries
+              .sort((a, b) =>
+                triviaCorrectCount(b) - triviaCorrectCount(a) ||
+                triviaResponseTime(a, triviaQuestions) - triviaResponseTime(b, triviaQuestions)
+              )
+              .map((entry, index) => (
+                <li key={entry.uid}>
+                  <span>{index + 1}. {teamInfo(entry.username).emblem} {entry.username}</span>
+                  <strong>{triviaCorrectCount(entry)} validées</strong>
+                </li>
+              ))}
+            {!entries.length && <li><span>Aucune réponse pour l’instant.</span></li>}
+          </ol>
+
+          {triviaQuestions.map((question, index) => (
+            <div className="trivia-question-count" key={`${question.q}-${index}`}>
+              <span>Q{index + 1}</span>
+              <strong>{entries.filter((entry) => entry.answers?.[index]).length} réponses</strong>
+            </div>
+          ))}
+
+          {manualTriviaQuestions.length > 0 && (
+            <div className="manual-review-list">
+              {manualTriviaQuestions.map((question) => {
+                const responses = entries
+                  .filter((entry) => entry.answers?.[question.index])
+                  .sort((a, b) => (a.answers[question.index].atMs || 0) - (b.answers[question.index].atMs || 0));
+                return (
+                  <section className="manual-review-question" key={`${question.index}-${question.q}`}>
+                    <h4>Q{question.index + 1}. {question.q}</h4>
+                    {responses.map((entry) => {
+                      const answer = entry.answers[question.index];
+                      return (
+                        <article className="manual-review-answer" key={`${question.index}-${entry.uid}`}>
+                          <div>
+                            <strong>{teamInfo(entry.username).emblem} {entry.username}</strong>
+                            <p>{triviaAnswerText(question, answer)}</p>
+                            <span className={`badge ${answer.status === 'valid' ? 'badge-success' : answer.status === 'rejected' ? 'badge-error' : 'badge-neutral'}`}>
+                              {answer.status === 'valid' ? 'Accepté' : answer.status === 'rejected' ? 'Refusé' : 'À juger'}
+                            </span>
+                          </div>
+                          <ReviewButtons
+                            onReview={(status) => reviewTrivia(entry.uid, question.index, status)}
+                            status={answer.status}
+                          />
+                        </article>
+                      );
+                    })}
+                    {!responses.length && <p className="form-hint">Aucune réponse pour cette question.</p>}
+                  </section>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Photos & bounty */}
@@ -891,7 +1000,15 @@ export default function Admin() {
                 <input checked={withImages} onChange={(e) => setWithImages(e.target.checked)} type="checkbox" />
                 Charger les images (photos/dessins)
               </label>
-              <ChallengeBoard busy={busy} challenge={challenge} locations={data?.locations || []} media={data.media} now={now} onAction={runAction} />
+              <ChallengeBoard
+                busy={busy}
+                challenge={challenge}
+                locations={data?.locations || []}
+                media={data.media}
+                now={now}
+                onAction={runAction}
+                teams={data?.teams || []}
+              />
             </>
           ) : (
             <p className="form-hint">Aucun défi affiché chez les équipes. Lancez-en un ci-dessous !</p>

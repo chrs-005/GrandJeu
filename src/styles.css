@@ -802,6 +802,22 @@ select:focus {
 .trivia-option.is-dimmed { opacity: 0.35; }
 .option-icon { font-size: 20px; }
 
+.trivia-written {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trivia-written textarea {
+  min-height: 150px;
+  resize: none;
+}
+
+.trivia-list-inputs {
+  display: grid;
+  gap: 9px;
+}
+
 .reveal-banner {
   border: none;
   border-radius: 8px;
@@ -819,6 +835,64 @@ select:focus {
 
 .reveal-answer { color: var(--ink); font-size: 16px; }
 .reveal-next { color: var(--ink-muted); font-style: italic; }
+
+.trivia-admin {
+  display: grid;
+  gap: 12px;
+}
+
+.trivia-admin-current,
+.manual-review-question,
+.manual-review-answer {
+  background: var(--cream);
+  border-radius: 8px;
+  box-shadow: var(--cut-line), var(--cut-shadow-sm);
+  color: var(--ink);
+}
+
+.trivia-admin-current {
+  display: grid;
+  gap: 7px;
+  padding: 13px;
+}
+
+.trivia-question-count {
+  align-items: center;
+  background: rgba(242, 224, 184, 0.78);
+  border-radius: 7px;
+  color: var(--ink);
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 11px;
+}
+
+.manual-review-list {
+  display: grid;
+  gap: 12px;
+}
+
+.manual-review-question {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.manual-review-question h4 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  margin: 0;
+}
+
+.manual-review-answer {
+  display: grid;
+  gap: 9px;
+  padding: 11px;
+}
+
+.manual-review-answer p {
+  margin: 6px 0;
+  white-space: pre-wrap;
+}
 
 /* --------------------------------------------------------------------------
    Photo / bounty / missions
@@ -1900,6 +1974,16 @@ select:focus {
 .app-view .trivia-options {
   flex: 1 1 auto;
   grid-auto-rows: 1fr;
+  min-height: 0;
+}
+
+.app-view .trivia-written {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.app-view .trivia-written textarea {
+  flex: 1 1 auto;
   min-height: 0;
 }
 

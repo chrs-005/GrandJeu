@@ -92,15 +92,18 @@ async function buildChallengeView(db, challenge, uid) {
 
     case 'trivia': {
       const questions = (config.questions || []).map((q, idx) => {
-        const finished = now >= q.endAtMs;
+        const finished = !running || now >= q.endAtMs;
         return {
           index: idx,
+          type: q.type || 'choice',
           q: q.q,
           options: q.options,
+          slots: q.slots || null,
+          manual: Boolean(q.manual),
           timeLimitSec: q.timeLimitSec,
           startAtMs: q.startAtMs,
           endAtMs: q.endAtMs,
-          correct: finished ? q.correct : null,
+          correct: finished && !q.manual ? q.correct : null,
         };
       });
       return {
@@ -397,9 +400,8 @@ async function handlePost(req, res) {
       const challenge = await loadActiveChallenge(db, body.challengeId, 'trivia');
       assertRunning(challenge, now);
       const idx = Number(body.questionIndex);
-      const choice = Number(body.choice);
       const question = challenge.config.questions?.[idx];
-      if (!question || !Number.isInteger(choice) || choice < 0 || choice >= question.options.length) {
+      if (!question) {
         return sendError(res, 400, 'Réponse invalide.');
       }
       if (now < question.startAtMs || now >= question.endAtMs) {
@@ -410,11 +412,32 @@ async function handlePost(req, res) {
         return sendError(res, 400, 'Déjà répondu.');
       }
 
-      const correct = choice === question.correct;
+      const kind = question.type || 'choice';
+      let answer;
+      if (kind === 'text') {
+        const text = String(body.text || '').trim().slice(0, 1000);
+        if (!text) return sendError(res, 400, 'Réponse vide.');
+        answer = { text, correct: false, status: 'pending', atMs: now };
+      } else if (kind === 'list') {
+        const slots = Math.max(1, Math.min(10, Number(question.slots || 1)));
+        const items = (Array.isArray(body.items) ? body.items : [])
+          .slice(0, slots)
+          .map((item) => String(item || '').trim().slice(0, 160));
+        if (items.length !== slots || items.some((item) => !item)) {
+          return sendError(res, 400, `Il faut remplir les ${slots} cases.`);
+        }
+        answer = { items, correct: false, status: 'pending', atMs: now };
+      } else {
+        const choice = Number(body.choice);
+        if (!Number.isInteger(choice) || choice < 0 || choice >= (question.options || []).length) {
+          return sendError(res, 400, 'Réponse invalide.');
+        }
+        answer = { choice, correct: choice === question.correct, status: 'valid', atMs: now };
+      }
 
       await saveBoardEntry(db, challenge.id, uid, {
         username,
-        answers: { ...existingAnswers, [idx]: { choice, correct, atMs: now } },
+        answers: { ...existingAnswers, [idx]: answer },
       });
       return res.status(200).json({ ok: true, accepted: true });
     }

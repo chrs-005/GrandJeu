@@ -65,13 +65,25 @@ function buildChallenge(type, cfg, teamUids) {
     }
 
     case 'trivia': {
-      const questions = (cfg.questions || []).map((q) => ({
-        q: String(q.q || '').slice(0, 300),
-        options: (q.options || []).slice(0, 4).map((o) => String(o).slice(0, 120)),
-        correct: num(q.correct, 0, 0, 3),
-        timeLimitSec: num(q.timeLimitSec, 20, 5, 120),
-      }));
+      const questions = (cfg.questions || []).map((q) => {
+        const type = ['choice', 'text', 'list'].includes(q.type) ? q.type : 'choice';
+        const options = (q.options || []).slice(0, 4).map((o) => String(o).slice(0, 120)).filter(Boolean);
+        return {
+          type,
+          q: String(q.q || '').slice(0, 300),
+          options,
+          correct: type === 'choice' ? num(q.correct, 0, 0, Math.max(0, options.length - 1)) : null,
+          slots: type === 'list' ? num(q.slots || q.count, 2, 1, 10) : null,
+          manual: type === 'text' || type === 'list',
+          timeLimitSec: num(q.timeLimitSec, 20, 5, 120),
+        };
+      });
       if (!questions.length) throw new Error('Aucune question fournie.');
+      questions.forEach((q) => {
+        if (q.type === 'choice' && q.options.length < 2) {
+          throw new Error('Chaque question choix multiple a besoin d’au moins 2 options.');
+        }
+      });
       const lobbySeconds = num(cfg.lobbySeconds, 10, 3, 60);
       const revealSeconds = num(cfg.revealSeconds, 6, 2, 30);
 
@@ -333,6 +345,64 @@ async function handlePost(req, res, verified) {
       const updates = { status: 'ended', endAtMs: Math.min(challenge.endAtMs, now) };
 
       await ref.update(updates);
+      invalidateStateCache();
+      return res.status(200).json({ ok: true });
+    }
+
+    case 'trivia-skip': {
+      const ref = db.collection('challenges').doc(body.challengeId);
+      const snap = await ref.get();
+      if (!snap.exists) return sendError(res, 404, 'Défi introuvable.');
+      const challenge = { id: snap.id, ...snap.data() };
+      if (challenge.type !== 'trivia') return sendError(res, 400, 'Mauvais type de défi.');
+      if (challenge.status !== 'active') return sendError(res, 400, 'Ce défi est terminé.');
+
+      const questions = [...(challenge.config.questions || [])];
+      const now = Date.now();
+      const index = Number.isInteger(body.questionIndex)
+        ? body.questionIndex
+        : questions.findIndex((q) => now >= q.startAtMs && now < q.endAtMs);
+      const question = questions[index];
+      if (!question) return sendError(res, 400, 'Question introuvable.');
+      if (now < question.startAtMs || now >= question.endAtMs) {
+        return sendError(res, 400, 'Aucune question active à passer.');
+      }
+
+      const revealSeconds = num(challenge.config.revealSeconds, 6, 2, 30);
+      question.endAtMs = now;
+      let cursor = now + revealSeconds * 1000;
+      for (let i = index + 1; i < questions.length; i += 1) {
+        const duration = num(questions[i].timeLimitSec, 20, 5, 120) * 1000;
+        questions[i] = { ...questions[i], startAtMs: cursor, endAtMs: cursor + duration };
+        cursor = questions[i].endAtMs + revealSeconds * 1000;
+      }
+
+      await ref.update({
+        'config.questions': questions,
+        endAtMs: cursor,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      invalidateStateCache();
+      return res.status(200).json({ ok: true });
+    }
+
+    case 'trivia-review': {
+      const { challengeId, uid, status } = body;
+      const questionIndex = Number(body.questionIndex);
+      const ref = db.collection('challenges').doc(challengeId);
+      const snap = await ref.get();
+      if (!snap.exists) return sendError(res, 404, 'Défi introuvable.');
+      const challenge = { id: snap.id, ...snap.data() };
+      if (challenge.type !== 'trivia') return sendError(res, 400, 'Mauvais type de défi.');
+      const answer = challenge.board?.[uid]?.answers?.[questionIndex];
+      if (!answer) return sendError(res, 404, 'Réponse introuvable.');
+
+      const valid = status === 'valid';
+      await ref.update({
+        [`board.${uid}.answers.${questionIndex}.status`]: valid ? 'valid' : 'rejected',
+        [`board.${uid}.answers.${questionIndex}.correct`]: valid,
+        [`board.${uid}.answers.${questionIndex}.reviewedAtMs`]: Date.now(),
+      });
       invalidateStateCache();
       return res.status(200).json({ ok: true });
     }
