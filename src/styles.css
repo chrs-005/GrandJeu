@@ -1708,7 +1708,11 @@ select:focus {
 .home-team-meta span { color: var(--cream-dim); font-size: 12px; font-style: italic; }
 
 
-.home-body { gap: 8px; justify-content: space-between; }
+.challenge-shell .challenge-body.home-body {
+  gap: 0;
+  justify-content: flex-end;
+  padding: 0 0 14px;
+}
 
 .home-team-crest {
   align-items: center;
@@ -1717,13 +1721,14 @@ select:focus {
   justify-content: center;
   min-height: 0;
   overflow: hidden;
+  width: 100%;
 }
 
 .home-team-crest img {
   display: block;
-  height: 100%;
-  max-height: 360px;
-  max-width: 100%;
+  height: auto;
+  max-height: 100%;
+  max-width: none;
   object-fit: contain;
   width: 100%;
 }
