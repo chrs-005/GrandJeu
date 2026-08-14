@@ -19,6 +19,13 @@ import {
   invalidateSheetCache,
 } from './_lib/defis.js';
 import { appendSheetChallenge, sheetConfigured } from './_lib/sheets.js';
+import {
+  NFC_FINAL_TRIGGER_TAG,
+  NFC_FINAL_URL,
+  NFC_REQUIRED_TAG_COUNT,
+  NFC_TAGS,
+  normalizeNfcTeam,
+} from './_lib/nfcConfig.js';
 
 const PUSH_BY_TYPE = {
   steps: { title: '🏃 La Course d’Hermès !', body: 'Courez ! Le messager des dieux vous défie. Ouvrez l’app !' },
@@ -202,6 +209,67 @@ function serializeLocation(doc) {
   };
 }
 
+function serializeNfcProgress(doc) {
+  const data = doc.data();
+  return {
+    teamKey: doc.id,
+    uid: data.uid || null,
+    username: data.username || doc.id,
+    scans: data.scans || {},
+    completedAtMs: data.completedAtMs || null,
+    lastTagId: data.lastTagId || null,
+    lastScanAtMs: data.lastScanAtMs || null,
+  };
+}
+
+async function buildNfcAdminView(db, teams) {
+  const [progressSnap, eventsSnap] = await Promise.all([
+    db.collection('nfcProgress').get(),
+    db.collection('nfcEvents').orderBy('createdAtMs', 'desc').limit(30).get(),
+  ]);
+  const progressByTeam = new Map(progressSnap.docs.map((doc) => [doc.id, serializeNfcProgress(doc)]));
+
+  return {
+    requiredTagCount: NFC_REQUIRED_TAG_COUNT,
+    finalUrl: NFC_FINAL_URL,
+    finalTriggerTag: NFC_FINAL_TRIGGER_TAG || null,
+    tags: Object.entries(NFC_TAGS).map(([id, tag]) => ({
+      id,
+      label: tag.label,
+      destinationUrl: tag.destinationUrl,
+    })),
+    teams: teams.map((team) => {
+      const teamKey = normalizeNfcTeam(team.username);
+      const progress = progressByTeam.get(teamKey) || {
+        teamKey,
+        uid: team.uid,
+        username: team.username,
+        scans: {},
+        completedAtMs: null,
+        lastTagId: null,
+        lastScanAtMs: null,
+      };
+      return {
+        ...progress,
+        foundCount: Object.keys(NFC_TAGS).filter((tagId) => progress.scans?.[tagId]?.firstAtMs).length,
+      };
+    }),
+    recentEvents: eventsSnap.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        teamKey: data.teamKey || '',
+        username: data.username || data.teamKey || '',
+        tagId: data.tagId || '',
+        tagLabel: data.tagLabel || '',
+        destinationType: data.destinationType || 'tag',
+        completedAfterScan: Boolean(data.completedAfterScan),
+        createdAtMs: data.createdAtMs || null,
+      };
+    }),
+  };
+}
+
 async function handleGet(req, res, verified) {
   const { db } = verified;
   const includeImages = req.query?.images === '1';
@@ -226,6 +294,7 @@ async function handleGet(req, res, verified) {
 
   const teams = await loadTeams(db);
   const { current, challenge, parcours, secret } = await loadGameState(db);
+  const nfc = await buildNfcAdminView(db, teams);
 
   const usersSnap = await db.collection('users').get();
   const locations = usersSnap.docs
@@ -251,6 +320,7 @@ async function handleGet(req, res, verified) {
     challenge,
     media,
     parcours: buildParcoursAdminView(parcours),
+    nfc,
     secret: secret
       ? {
           active: Boolean(secret.active),
@@ -557,6 +627,18 @@ async function handlePost(req, res, verified) {
       const targetUid = body.target === 'self' ? decoded.uid : null;
       const push = await sendPush(db, { title, body: text, url: '/app', targetUid });
       return res.status(200).json({ ok: true, ...push });
+    }
+
+    case 'nfc-reset': {
+      const [progressSnap, eventsSnap] = await Promise.all([
+        db.collection('nfcProgress').get(),
+        db.collection('nfcEvents').get(),
+      ]);
+      const batch = db.batch();
+      progressSnap.docs.forEach((doc) => batch.delete(doc.ref));
+      eventsSnap.docs.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+      return res.status(200).json({ ok: true });
     }
 
     default:

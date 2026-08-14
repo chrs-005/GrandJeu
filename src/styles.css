@@ -1110,6 +1110,99 @@ select:focus {
   gap: 12px;
 }
 
+.nfc-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nfc-tag-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.nfc-tag-card,
+.nfc-team-row {
+  background: rgba(36, 22, 8, 0.08);
+  border-radius: 8px;
+  box-shadow: var(--cut-line);
+  color: var(--ink);
+  padding: 9px 10px;
+}
+
+.nfc-tag-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.nfc-tag-card span,
+.nfc-team-row small,
+.nfc-team-row code {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.nfc-tag-card span,
+.nfc-team-row code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nfc-team-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.nfc-team-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nfc-team-head,
+.nfc-tag-dots {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+  justify-content: space-between;
+}
+
+.nfc-tag-dots {
+  justify-content: flex-start;
+}
+
+.nfc-tag-dot {
+  align-items: center;
+  background: var(--cream);
+  border: 1px solid rgba(36, 22, 8, 0.35);
+  border-radius: 50%;
+  color: var(--ink-muted);
+  display: inline-flex;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  height: 25px;
+  justify-content: center;
+  width: 25px;
+}
+
+.nfc-tag-dot.is-scanned {
+  background: var(--success);
+  color: var(--cream);
+}
+
+.nfc-events h4 {
+  color: var(--ink);
+  font-size: 15px;
+  margin-top: 2px;
+}
+
 .form-grid {
   display: flex;
   flex-direction: column;

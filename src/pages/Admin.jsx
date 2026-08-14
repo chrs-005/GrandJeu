@@ -700,6 +700,78 @@ function ParcoursAdmin({ parcours }) {
 }
 
 // ---------------------------------------------------------------------------
+// NFC hunt monitor
+// ---------------------------------------------------------------------------
+function NfcAdmin({ busy, nfc, onAction }) {
+  if (!nfc) return <p className="form-hint">Chargement des scans NFC...</p>;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+
+  return (
+    <div className="nfc-admin">
+      <div className="btn-group">
+        <button className="btn btn-danger btn-sm" disabled={busy} onClick={() => onAction('nfc-reset', {}, 'Scans NFC remis a zero.')} type="button">
+          Reset NFC
+        </button>
+      </div>
+
+      <div className="nfc-tag-grid">
+        {nfc.tags.map((tag) => (
+          <div className="nfc-tag-card" key={tag.id}>
+            <strong>{tag.label}</strong>
+            <span>{tag.destinationUrl.includes('example.com') ? 'Lien a remplir' : tag.destinationUrl}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="nfc-team-list">
+        {nfc.teams.map((team) => {
+          const info = teamInfo(team.username);
+          return (
+            <article className="nfc-team-row" key={team.teamKey}>
+              <div className="nfc-team-head">
+                <strong>{info.emblem} {team.username}</strong>
+                <span className={`badge ${team.foundCount >= nfc.requiredTagCount ? 'badge-success' : 'badge-neutral'}`}>
+                  {team.foundCount}/{nfc.requiredTagCount}
+                </span>
+              </div>
+              <div className="nfc-tag-dots">
+                {nfc.tags.map((tag) => {
+                  const scan = team.scans?.[tag.id];
+                  return (
+                    <span className={`nfc-tag-dot ${scan ? 'is-scanned' : ''}`} key={tag.id} title={scan ? `${tag.label} - ${scan.count} scan(s)` : tag.label}>
+                      {tag.id}
+                    </span>
+                  );
+                })}
+              </div>
+              <small>
+                {team.lastScanAtMs ? `Dernier scan: tag ${team.lastTagId}, il y a ${formatAge(team.lastScanAtMs)}` : 'Aucun scan'}
+              </small>
+              <code>{`${origin}/api/nfc?tag=1&team=${team.teamKey}`}</code>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="nfc-events">
+        <h4>Derniers scans</h4>
+        <ol className="mini-board">
+          {nfc.recentEvents.map((event) => (
+            <li key={event.id}>
+              <span>
+                {teamInfo(event.username).emblem} {event.username} - {event.tagLabel || `Tag ${event.tagId}`}
+              </span>
+              <strong>{event.destinationType === 'final' ? 'Final' : formatAge(event.createdAtMs)}</strong>
+            </li>
+          ))}
+          {!nfc.recentEvents.length && <li><span>Aucun scan NFC pour l'instant.</span></li>}
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main admin page
 // ---------------------------------------------------------------------------
 export default function Admin() {
@@ -870,6 +942,12 @@ export default function Admin() {
         <section className="admin-section">
           <h3 className="section-title">📜 Les Défis</h3>
           <DefisAdmin busy={busy} now={now} onAction={runAction} user={currentUser} />
+        </section>
+
+        {/* NFC Easter egg hunt */}
+        <section className="admin-section">
+          <h3 className="section-title">NFC Easter eggs</h3>
+          <NfcAdmin busy={busy} nfc={data?.nfc} onAction={runAction} />
         </section>
 
         {/* Le Fil d'Ariane */}

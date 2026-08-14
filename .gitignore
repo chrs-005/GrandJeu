@@ -10,6 +10,7 @@ lerna-debug.log*
 .env
 data/users.json
 data/serviceAccountKey.json
+src/assets/nfc-picture-*
 node_modules
 dist
 dist-ssr
