@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test:steps": "node scripts/test-step-detector.js",
     "seed-users": "node --use-system-ca scripts/seed-users.js",
     "count-subscriptions": "node --use-system-ca scripts/count-subscriptions.js",
     "generate-vapid": "node scripts/generate-vapid.js"

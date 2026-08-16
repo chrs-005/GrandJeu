@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createStepDetector, processMotionSample } from './stepDetector';
 
 export function isMotionSupported() {
   return 'DeviceMotionEvent' in window;
@@ -13,8 +14,6 @@ export async function requestMotionPermission() {
   return true;
 }
 
-const STEP_THRESHOLD = 16.5;
-const STEP_DEBOUNCE_MS = 450;
 const SAVE_INTERVAL_MS = 5000;
 
 // Counts steps from devicemotion while the challenge window is open and
@@ -22,7 +21,6 @@ const SAVE_INTERVAL_MS = 5000;
 export function useStepCounter({ enabled, challenge, serverNow, initialSteps = 0, onSave }) {
   const [steps, setSteps] = useState(initialSteps);
   const stepsRef = useRef(initialSteps);
-  const lastStepAtRef = useRef(0);
   const lastSaveAtRef = useRef(0);
   const challengeRef = useRef(challenge);
   const onSaveRef = useRef(onSave);
@@ -39,6 +37,7 @@ export function useStepCounter({ enabled, challenge, serverNow, initialSteps = 0
 
   useEffect(() => {
     if (!enabled) return undefined;
+    const detector = createStepDetector();
 
     function handleMotion(event) {
       const current = challengeRef.current;
@@ -46,17 +45,10 @@ export function useStepCounter({ enabled, challenge, serverNow, initialSteps = 0
       if (!current || current.status !== 'active') return;
       if (now < current.startAtMs || now > current.endAtMs) return;
 
-      const acceleration = event.accelerationIncludingGravity || event.acceleration;
-      if (!acceleration) return;
-      const x = acceleration.x || 0;
-      const y = acceleration.y || 0;
-      const z = acceleration.z || 0;
-      const magnitude = Math.sqrt(x * x + y * y + z * z);
-
       const wallNow = Date.now();
-      if (magnitude > STEP_THRESHOLD && wallNow - lastStepAtRef.current > STEP_DEBOUNCE_MS) {
-        lastStepAtRef.current = wallNow;
-        stepsRef.current += 1;
+      const detectedSteps = processMotionSample(detector, event, wallNow);
+      if (detectedSteps > 0) {
+        stepsRef.current += detectedSteps;
         setSteps(stepsRef.current);
 
         if (wallNow - lastSaveAtRef.current >= SAVE_INTERVAL_MS) {
@@ -68,7 +60,7 @@ export function useStepCounter({ enabled, challenge, serverNow, initialSteps = 0
 
     window.addEventListener('devicemotion', handleMotion);
     return () => window.removeEventListener('devicemotion', handleMotion);
-  }, [enabled, serverNow]);
+  }, [challengeId, enabled, serverNow]);
 
   // Final save shortly after the challenge ends so the last count lands.
   useEffect(() => {
