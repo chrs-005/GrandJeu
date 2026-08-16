@@ -121,7 +121,7 @@ export default function HadesReveal() {
       <section className="hades-riddle" aria-label="Riddle of the shade">
         <div className="hades-riddle-copy">
           <p>
-            &ldquo;I AM A{' '}
+            I AM A{' '}
             <span className={`hades-inline-word ${nearTarget ? 'is-near' : ''}`} ref={wordRef}>
               {!revealing && (
                 <button
@@ -142,13 +142,13 @@ export default function HadesReveal() {
               {revealing && <span className="hades-snapped-s">S</span>}
               {!revealing && <span aria-hidden="true" className="hades-drop-target" ref={dropRef} />}
             </span>
-            , FOLLOWING YOU FROM THE START&rdquo;
+            ,
           </p>
-          <p>DRAGGING BEHIND YOUR STEPS SILENTLY,</p>
-          <p>THE GODS MIGHT BE TOO POWERFUL FOR YOUR HUMANKIND.</p>
-          <p>START BY DISCOVERING MY IDENTITY, YOU MIGHT NEED</p>
-          <p>TO SEEK HELP; HELP FROM OTHER THAN SOME PETTY MONSTERS.</p>
-          <p>THE HELP I WILL OFFER IS HUGE, VISIT ME.</p>
+          <p>DRAGGING BEHIND YOU,</p>
+          <p>THE GODS MIGHT BE TOO POWERFUL.</p>
+          <p>START BY DISCOVERING MY IDENTITY,</p>
+          <p>TO SEEK MY HELP,</p>
+          <p>THE ROAD IS NOT EASY.</p>
           <p>END.</p>
         </div>
       </section>
