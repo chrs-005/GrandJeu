@@ -1,12 +1,10 @@
 const GRAVITY_FILTER_ALPHA = 0.9;
 const MAGNITUDE_SMOOTHING = 0.4;
-const STEP_TRIGGER = 2.4;
-const STEP_RESET = 1.0;
-const MAX_STEP_ACCELERATION = 16;
-const MIN_STEP_INTERVAL_MS = 300;
-const MAX_STEP_INTERVAL_MS = 1000;
-const CADENCE_TOLERANCE_MS = 120;
-const CADENCE_TOLERANCE_RATIO = 0.3;
+const STEP_TRIGGER = 1.5;
+const STEP_RESET = 1.2;
+const MAX_STEP_ACCELERATION = 24;
+const MIN_STEP_INTERVAL_MS = 250;
+const MAX_STEP_INTERVAL_MS = 1300;
 const REQUIRED_CADENCE_PEAKS = 3;
 
 export function createStepDetector() {
@@ -15,7 +13,6 @@ export function createStepDetector() {
     smoothedMagnitude: 0,
     armed: true,
     lastPeakAt: 0,
-    lastInterval: 0,
     cadencePeaks: 0,
     cadenceConfirmed: false,
   };
@@ -48,7 +45,6 @@ function getLinearAcceleration(detector, event) {
 
 function resetCadence(detector, peakAt) {
   detector.lastPeakAt = peakAt;
-  detector.lastInterval = 0;
   detector.cadencePeaks = 1;
   detector.cadenceConfirmed = false;
 }
@@ -65,20 +61,7 @@ function registerPeak(detector, peakAt) {
     return 0;
   }
 
-  const tolerance = Math.max(
-    CADENCE_TOLERANCE_MS,
-    detector.lastInterval * CADENCE_TOLERANCE_RATIO
-  );
-  if (detector.lastInterval && Math.abs(interval - detector.lastInterval) > tolerance) {
-    detector.lastPeakAt = peakAt;
-    detector.lastInterval = interval;
-    detector.cadencePeaks = 2;
-    detector.cadenceConfirmed = false;
-    return 0;
-  }
-
   detector.lastPeakAt = peakAt;
-  detector.lastInterval = interval;
   detector.cadencePeaks += 1;
 
   if (!detector.cadenceConfirmed) {

@@ -576,7 +576,10 @@ async function handlePost(req, res, verified) {
       const ref = db.collection('gameState').doc('defis');
 
       if (body.stop) {
-        await ref.set({ [`hot.${challengeId}`]: FieldValue.delete() }, { merge: true });
+        await ref.update({
+          [`hot.${challengeId}`]: FieldValue.delete(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
         invalidateSheetCache();
         return res.status(200).json({ ok: true, stopped: true });
       }
