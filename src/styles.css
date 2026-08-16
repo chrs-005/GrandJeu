@@ -1275,6 +1275,11 @@ select:focus {
   margin-bottom: 0;
 }
 
+.hades-riddle-wide-line {
+  font-size: 0.78em;
+  white-space: nowrap;
+}
+
 .hades-inline-word {
   align-items: baseline;
   display: inline-flex;
@@ -1402,10 +1407,7 @@ select:focus {
     opacity: 0;
     transform: translate(-50%, -135%) scale(0.72);
   }
-  18% { opacity: 1; }
-  68% { transform: translate(-50%, 4%) scale(1.04); }
-  82% { transform: translate(-50%, -7%) scale(0.98); }
-  92% { transform: translate(-50%, 0) scale(1.015); }
+  24% { opacity: 1; }
   100% {
     opacity: 1;
     transform: translate(-50%, -3%) scale(1);
@@ -1417,10 +1419,7 @@ select:focus {
     opacity: 0;
     transform: translate(-50%, 135%) scale(0.72);
   }
-  18% { opacity: 1; }
-  68% { transform: translate(-50%, -2%) scale(1.04); }
-  82% { transform: translate(-50%, 10%) scale(0.98); }
-  92% { transform: translate(-50%, 2%) scale(1.015); }
+  24% { opacity: 1; }
   100% {
     opacity: 1;
     transform: translate(-50%, 4%) scale(1);

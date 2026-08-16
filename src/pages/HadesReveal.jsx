@@ -145,8 +145,8 @@ export default function HadesReveal() {
             ,
           </p>
           <p>DRAGGING BEHIND YOU,</p>
-          <p>THE GODS MIGHT BE TOO POWERFUL.</p>
-          <p>START BY DISCOVERING MY IDENTITY,</p>
+          <p className="hades-riddle-wide-line">THE GODS MIGHT BE TOO POWERFUL.</p>
+          <p className="hades-riddle-wide-line">START BY DISCOVERING MY IDENTITY,</p>
           <p>TO SEEK MY HELP,</p>
           <p>THE ROAD IS NOT EASY.</p>
           <p>END.</p>
