@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import hadesTop from '../assets/hades-top.png';
 import hadesBottom from '../assets/hades-bottom.png';
+import { createHadesSoundscape } from '../audio/hadesSoundscape';
 
 const IDLE_OFFSET = { x: 0, y: 0 };
 
@@ -13,6 +14,7 @@ export default function HadesReveal() {
   const dragRef = useRef(null);
   const wordRef = useRef(null);
   const dropRef = useRef(null);
+  const soundscapeRef = useRef(null);
 
   const revealing = phase !== 'idle';
   const expanded = phase === 'expanded';
@@ -29,8 +31,18 @@ export default function HadesReveal() {
     };
   }, [phase]);
 
+  useEffect(() => () => soundscapeRef.current?.stop(), []);
+
+  function soundscape() {
+    if (!soundscapeRef.current) soundscapeRef.current = createHadesSoundscape();
+    return soundscapeRef.current;
+  }
+
   function solve() {
     if (revealing || !wordRef.current) return;
+    const audio = soundscape();
+    audio.start();
+    audio.reveal();
     const rect = wordRef.current.getBoundingClientRect();
     const fontSize = Number.parseFloat(getComputedStyle(wordRef.current).fontSize) || 16;
     setOrigin({
@@ -60,6 +72,7 @@ export default function HadesReveal() {
 
   function startDrag(event) {
     if (revealing) return;
+    soundscape().start();
     const rect = event.currentTarget.getBoundingClientRect();
     dragRef.current = {
       pointerId: event.pointerId,
@@ -145,7 +158,7 @@ export default function HadesReveal() {
             ,
           </p>
           <p>DRAGGING BEHIND YOU,</p>
-          <p className="hades-riddle-wide-line">THE GODS MIGHT BE TOO POWERFUL.</p>
+          <p className="hades-riddle-wide-line">THE MONSTERS ARE NOT ENOUGH.</p>
           <p className="hades-riddle-wide-line">START BY DISCOVERING MY IDENTITY,</p>
           <p>TO SEEK MY HELP,</p>
           <p>THE ROAD IS NOT EASY.</p>
@@ -154,17 +167,22 @@ export default function HadesReveal() {
       </section>
 
       {revealing && (
-        <div
-          aria-label="Hades"
-          className={`hades-final-title ${expanded ? 'is-expanded' : ''}`}
-          style={{
-            '--hades-origin-x': `${origin.x}px`,
-            '--hades-origin-y': `${origin.y}px`,
-            '--hades-origin-size': `${origin.fontSize}px`,
-          }}
-        >
-          HADES
-        </div>
+        <>
+          <div
+            aria-label="Hades"
+            className={`hades-final-title ${expanded ? 'is-expanded' : ''}`}
+            style={{
+              '--hades-origin-x': `${origin.x}px`,
+              '--hades-origin-y': `${origin.y}px`,
+              '--hades-origin-size': `${origin.fontSize}px`,
+            }}
+          >
+            HADES
+          </div>
+          <p className={`hades-final-message ${expanded ? 'is-expanded' : ''}`}>
+            Go home now, you should lend me a visit soon
+          </p>
+        </>
       )}
     </main>
   );

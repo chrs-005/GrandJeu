@@ -1371,6 +1371,36 @@ select:focus {
   top: 50%;
 }
 
+.hades-final-message {
+  color: #edf0f7;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  left: 50%;
+  line-height: 1.45;
+  margin: 0;
+  max-width: 520px;
+  opacity: 0;
+  position: fixed;
+  text-align: center;
+  text-shadow: 0 2px 3px #02050d, 0 0 12px rgba(96, 143, 255, 0.9);
+  top: calc(50% + 54px);
+  transform: translate(-50%, 14px);
+  width: 82%;
+  z-index: 5;
+}
+
+.hades-final-message.is-expanded {
+  animation: hades-final-message-in 1.7s ease 4.1s both;
+}
+
+@keyframes hades-final-message-in {
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
 .hades-reveal-art {
   left: 50%;
   max-width: 96%;
@@ -1435,6 +1465,11 @@ select:focus {
   .hades-final-title.is-expanded {
     font-size: 96px;
   }
+
+  .hades-final-message {
+    font-size: 18px;
+    top: calc(50% + 68px);
+  }
 }
 
 @media (max-width: 420px) {
@@ -1452,6 +1487,11 @@ select:focus {
 
   .hades-final-title.is-expanded {
     font-size: 132px;
+  }
+
+  .hades-final-message {
+    font-size: 21px;
+    top: calc(50% + 90px);
   }
 }
 
