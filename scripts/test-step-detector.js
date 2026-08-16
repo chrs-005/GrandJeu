@@ -15,7 +15,7 @@ function runPulseSequence({ durationMs, pulseEveryMs, pulseStrength = 8, sampleE
   return steps;
 }
 
-assert.equal(runPulseSequence({ durationMs: 5000, pulseEveryMs: 500 }), 8);
+assert.equal(runPulseSequence({ durationMs: 5000, pulseEveryMs: 500 }), 10);
 assert.equal(runPulseSequence({ durationMs: 3000, pulseEveryMs: 120 }), 0);
 assert.equal(runPulseSequence({ durationMs: 3000, pulseEveryMs: 1500 }), 0);
 

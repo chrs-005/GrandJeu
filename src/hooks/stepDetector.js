@@ -84,6 +84,7 @@ function registerPeak(detector, peakAt) {
   if (!detector.cadenceConfirmed) {
     if (detector.cadencePeaks < REQUIRED_CADENCE_PEAKS) return 0;
     detector.cadenceConfirmed = true;
+    return REQUIRED_CADENCE_PEAKS;
   }
 
   return 1;
