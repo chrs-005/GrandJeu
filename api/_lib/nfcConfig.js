@@ -32,16 +32,6 @@ export const NFC_REQUIRED_TAG_COUNT = Object.keys(NFC_TAGS).length;
 export const NFC_FINAL_URL = process.env.NFC_FINAL_URL || 'https://example.com/final-point';
 export const NFC_FINAL_TRIGGER_TAG = process.env.NFC_FINAL_TRIGGER_TAG || '';
 
-// Optional per-team secret keys. If a key is set here, NFC links for that team
-// must include it as ?k=... . Leaving keys empty keeps setup simpler.
-export const NFC_TEAM_KEYS = {
-  faucon: process.env.NFC_TEAM_KEY_FAUCON || '',
-  leopard: process.env.NFC_TEAM_KEY_LEOPARD || '',
-  panda: process.env.NFC_TEAM_KEY_PANDA || '',
-  requin: process.env.NFC_TEAM_KEY_REQUIN || '',
-  bison: process.env.NFC_TEAM_KEY_BISON || '',
-};
-
 export function normalizeNfcTeam(value) {
   return String(value || '')
     .trim()

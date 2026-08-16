@@ -714,10 +714,15 @@ function NfcAdmin({ busy, nfc, onAction }) {
         </button>
       </div>
 
+      <p className="form-hint">
+        Point final: {nfc.finalUrl.includes('example.com') ? 'Lien a remplir dans NFC_FINAL_URL' : nfc.finalUrl}
+      </p>
+
       <div className="nfc-tag-grid">
         {nfc.tags.map((tag) => (
           <div className="nfc-tag-card" key={tag.id}>
             <strong>{tag.label}</strong>
+            <code>{`${origin}/nfc/${tag.id}`}</code>
             <span>{tag.destinationUrl.includes('example.com') ? 'Lien a remplir' : tag.destinationUrl}</span>
           </div>
         ))}
@@ -747,7 +752,6 @@ function NfcAdmin({ busy, nfc, onAction }) {
               <small>
                 {team.lastScanAtMs ? `Dernier scan: tag ${team.lastTagId}, il y a ${formatAge(team.lastScanAtMs)}` : 'Aucun scan'}
               </small>
-              <code>{`${origin}/api/nfc?tag=1&team=${team.teamKey}`}</code>
             </article>
           );
         })}

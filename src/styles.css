@@ -1139,6 +1139,7 @@ select:focus {
 }
 
 .nfc-tag-card span,
+.nfc-tag-card code,
 .nfc-team-row small,
 .nfc-team-row code {
   color: var(--ink-muted);
@@ -1146,11 +1147,16 @@ select:focus {
 }
 
 .nfc-tag-card span,
+.nfc-tag-card code,
 .nfc-team-row code {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.nfc-tag-card code {
+  color: var(--oxide);
 }
 
 .nfc-team-list {
@@ -1201,6 +1207,23 @@ select:focus {
   color: var(--ink);
   font-size: 15px;
   margin-top: 2px;
+}
+
+.nfc-redirect {
+  background: #0e0905;
+  inset: 0;
+  position: fixed;
+}
+
+.nfc-redirect-error {
+  align-items: center;
+  color: var(--cream);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
 }
 
 .form-grid {

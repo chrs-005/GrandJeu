@@ -1,10 +1,9 @@
-// Public zero-UI NFC router.
-// Example tag URL: /api/nfc?tag=1&team=faucon
+// Authenticated NFC scan recorder. The zero-UI /nfc/:tag client route calls
+// this endpoint with the Firebase ID token, then performs the redirect.
 import {
   FieldValue,
-  getDb,
-  loadTeams,
   sendError,
+  verifyUser,
   withErrorHandling,
 } from './_lib/core.js';
 import {
@@ -12,7 +11,6 @@ import {
   NFC_FINAL_URL,
   NFC_REQUIRED_TAG_COUNT,
   NFC_TAGS,
-  NFC_TEAM_KEYS,
   normalizeNfcTag,
   normalizeNfcTeam,
 } from './_lib/nfcConfig.js';
@@ -33,37 +31,32 @@ function getClientIp(req) {
   return req.socket?.remoteAddress || '';
 }
 
-async function resolveTeam(db, teamKey) {
-  const teams = await loadTeams(db);
-  return teams.find((team) => normalizeNfcTeam(team.username) === teamKey) || null;
-}
-
 async function handleScan(req, res) {
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
+  if (req.method !== 'POST') {
     return sendError(res, 405, 'Method not allowed');
   }
 
-  const db = getDb();
+  const auth = await verifyUser(req);
+  if (auth.error) return sendError(res, auth.error.status, auth.error.message);
+
   const tagId = normalizeNfcTag(req.query?.tag || req.query?.t);
   const tag = NFC_TAGS[tagId];
   if (!tag) return sendError(res, 404, 'Unknown NFC tag');
 
-  const teamKey = normalizeNfcTeam(req.query?.team || req.query?.u);
-  if (!teamKey) return sendError(res, 400, 'Missing team');
-
-  const expectedKey = NFC_TEAM_KEYS[teamKey];
-  if (expectedKey && String(req.query?.k || '') !== expectedKey) {
-    return sendError(res, 403, 'Invalid team key');
+  const email = String(auth.user.email || auth.decoded.email || '').toLowerCase();
+  if (auth.user.role === 'admin' || email === 'arianne@grandjeu.local' || email.startsWith('arianne-')) {
+    return sendError(res, 403, 'Only a team can scan an NFC tag');
   }
 
-  const team = await resolveTeam(db, teamKey);
-  if (!team) return sendError(res, 404, 'Unknown team');
+  const username = auth.user.username || email.split('@')[0] || auth.decoded.uid;
+  const teamKey = normalizeNfcTeam(username);
+  if (!teamKey) return sendError(res, 403, 'Unknown team');
 
   const now = Date.now();
-  const progressRef = db.collection('nfcProgress').doc(teamKey);
-  const eventRef = db.collection('nfcEvents').doc();
+  const progressRef = auth.db.collection('nfcProgress').doc(teamKey);
+  const eventRef = auth.db.collection('nfcEvents').doc();
 
-  const result = await db.runTransaction(async (tx) => {
+  const result = await auth.db.runTransaction(async (tx) => {
     const snap = await tx.get(progressRef);
     const current = snap.exists ? snap.data() : {};
     const scans = current.scans || {};
@@ -86,8 +79,8 @@ async function handleScan(req, res) {
       progressRef,
       {
         teamKey,
-        uid: team.uid,
-        username: team.username,
+        uid: auth.decoded.uid,
+        username,
         scans: nextScans,
         completedAtMs: current.completedAtMs || (isComplete ? now : null),
         lastTagId: tagId,
@@ -99,8 +92,8 @@ async function handleScan(req, res) {
 
     tx.set(eventRef, {
       teamKey,
-      uid: team.uid,
-      username: team.username,
+      uid: auth.decoded.uid,
+      username,
       tagId,
       tagLabel: tag.label,
       destinationType: redirectToFinal ? 'final' : 'tag',
@@ -113,11 +106,11 @@ async function handleScan(req, res) {
       createdAt: FieldValue.serverTimestamp(),
     });
 
-    return { redirectUrl };
+    return { redirectUrl, destinationType: redirectToFinal ? 'final' : 'tag' };
   });
 
   res.setHeader('Cache-Control', 'no-store, max-age=0');
-  return res.redirect(302, result.redirectUrl);
+  return res.status(200).json({ ok: true, ...result });
 }
 
 export default withErrorHandling(handleScan);

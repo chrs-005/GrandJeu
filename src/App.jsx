@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import UserApp from './pages/UserApp';
 import Admin from './pages/Admin';
 import ArianneApp from './pages/ArianneApp';
+import NfcRedirect from './pages/NfcRedirect';
 
 function RootRedirect() {
   const { currentUser, loading } = useAuth();
@@ -23,6 +24,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/nfc/:tagId" element={<NfcRedirect />} />
           <Route
             path="/app"
             element={

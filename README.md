@@ -25,6 +25,17 @@ Chaque compte équipe est le champion d'un dieu (couleur + emblème dans l'app) 
 `faucon` → Zeus, `leopard` → Artémis, `panda` → Athéna, `requin` → Poséidon, `bison` → Arès.
 (Mapping dans `src/config/gameConfig.js`.)
 
+## NFC partage
+
+Les cinq tags physiques utilisent les memes URLs pour toutes les equipes : `/nfc/1` a
+`/nfc/5`. La route lit la session Firebase du navigateur, enregistre l'equipe dans la console
+admin, puis redirige sans interface vers la destination du tag. Sur iPhone, Safari et une PWA
+installee ont des sessions separees : connecter chaque equipe une fois dans Safari avant le jeu
+pour que tous les scans suivants restent instantanes.
+
+Configurer `NFC_FINAL_URL` dans Vercel avant le jeu. Une equipe qui a deja trouve les cinq tags
+est envoyee vers ce sixieme point lors de son scan suivant.
+
 ## Tech
 
 - **Frontend :** React + Vite + `vite-plugin-pwa` (installable iOS ≥ 16.4)

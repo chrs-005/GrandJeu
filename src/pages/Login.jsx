@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { isArianneLogin, signInArianneDevice } from '../auth/arianneAccess';
 import { APP_NAME, APP_SUBTITLE } from '../config/gameConfig';
@@ -15,6 +15,7 @@ function normalizeLogin(value) {
 export default function Login() {
   const { login, signup } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,7 +29,11 @@ export default function Login() {
       const arianne = isArianneLogin(username, password);
       if (arianne) await signInArianneDevice(login, signup);
       else await login(normalizeLogin(username), password);
-      navigate(arianne ? '/arianne' : '/app');
+      const requestedPath = new URLSearchParams(location.search).get('next');
+      const safeNext = requestedPath?.startsWith('/') && !requestedPath.startsWith('//')
+        ? requestedPath
+        : null;
+      navigate(arianne ? '/arianne' : safeNext || '/app', { replace: true });
     } catch (err) {
       setError(friendlyError(err));
     } finally {

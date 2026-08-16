@@ -38,6 +38,12 @@ export function gameAction(user, action, payload = {}) {
   });
 }
 
+export function recordNfcScan(user, tagId) {
+  return request(user, `/api/nfc?tag=${encodeURIComponent(tagId)}`, {
+    method: 'POST',
+  });
+}
+
 // -- défis (always-on challenge list) -----------------------------------------
 export function fetchDefis(user) {
   return request(user, '/api/game?view=defis');
