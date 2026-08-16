@@ -33,8 +33,8 @@ admin, puis redirige sans interface vers la destination du tag. Sur iPhone, Safa
 installee ont des sessions separees : connecter chaque equipe une fois dans Safari avant le jeu
 pour que tous les scans suivants restent instantanes.
 
-Configurer `NFC_FINAL_URL` dans Vercel avant le jeu. Une equipe qui a deja trouve les cinq tags
-est envoyee vers ce sixieme point lors de son scan suivant.
+Une equipe qui a deja trouve les cinq tags est envoyee vers la revelation `/hades` lors de son
+scan suivant.
 
 ## Tech
 

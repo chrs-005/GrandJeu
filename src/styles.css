@@ -1226,6 +1226,234 @@ select:focus {
   text-align: center;
 }
 
+/* --------------------------------------------------------------------------
+   Hades NFC reveal
+   -------------------------------------------------------------------------- */
+.hades-page {
+  background-color: #071126;
+  background-image: url('./assets/bg-hades.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  inset: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  position: fixed;
+  user-select: none;
+}
+
+.hades-riddle {
+  align-items: center;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 84px) 0 calc(env(safe-area-inset-bottom, 0px) + 96px);
+  position: absolute;
+  z-index: 3;
+}
+
+.hades-riddle-copy {
+  color: #edf0f7;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.65;
+  text-align: center;
+  text-shadow: 0 2px 2px #050a13, 0 0 12px rgba(5, 10, 19, 0.88);
+  transition: opacity 1.35s ease;
+  max-width: 620px;
+  overflow-wrap: break-word;
+  width: 72%;
+}
+
+.hades-riddle-copy p {
+  margin: 0 0 8px;
+}
+
+.hades-riddle-copy p:last-child {
+  margin-bottom: 0;
+}
+
+.hades-inline-word {
+  align-items: baseline;
+  display: inline-flex;
+  position: relative;
+  transition: opacity 0.15s ease, text-shadow 0.2s ease;
+  white-space: nowrap;
+}
+
+.hades-inline-word.is-near {
+  color: #ffffff;
+  text-shadow: 0 0 7px #72a7ff, 0 0 18px #1f5dff;
+}
+
+.hades-letter-s {
+  all: unset;
+  color: #ffffff;
+  cursor: grab;
+  display: inline-block;
+  font: inherit;
+  position: relative;
+  text-shadow: 0 0 8px rgba(116, 166, 255, 0.75);
+  touch-action: none;
+  transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), text-shadow 0.2s ease;
+  z-index: 5;
+}
+
+.hades-letter-s::before {
+  content: '';
+  inset: -14px -9px;
+  position: absolute;
+}
+
+.hades-letter-s:focus-visible {
+  outline: 2px solid #d8e5ff;
+  outline-offset: 5px;
+}
+
+.hades-letter-s.is-dragging {
+  cursor: grabbing;
+  text-shadow: 0 0 6px #ffffff, 0 0 18px #397aff;
+  transition: text-shadow 0.2s ease;
+}
+
+.hades-drop-target {
+  height: 2.6em;
+  left: 100%;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0.8em;
+}
+
+.hades-page.is-revealing .hades-riddle-copy {
+  opacity: 0;
+  pointer-events: none;
+  transition-delay: 0.18s;
+}
+
+.hades-page.is-revealing .hades-inline-word {
+  opacity: 0;
+}
+
+.hades-final-title {
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: var(--hades-origin-size);
+  font-weight: 900;
+  left: var(--hades-origin-x);
+  line-height: 1;
+  position: fixed;
+  text-shadow: 0 2px 3px #02050d, 0 0 9px #608fff;
+  top: var(--hades-origin-y);
+  transform: translate(-50%, -50%);
+  transition:
+    left 2.8s cubic-bezier(0.2, 0.72, 0.2, 1),
+    top 2.8s cubic-bezier(0.2, 0.72, 0.2, 1),
+    font-size 2.8s cubic-bezier(0.2, 0.72, 0.2, 1),
+    color 2s ease,
+    text-shadow 2s ease;
+  white-space: nowrap;
+  z-index: 5;
+}
+
+.hades-final-title.is-expanded {
+  color: #e8eeff;
+  font-size: 72px;
+  left: 50%;
+  text-shadow: 0 4px 4px #02050d, 0 0 12px #ffffff, 0 0 32px #2868ff;
+  top: 50%;
+}
+
+.hades-reveal-art {
+  left: 50%;
+  max-width: 96%;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.hades-reveal-top {
+  height: min(44dvh, 520px);
+  object-fit: contain;
+  top: env(safe-area-inset-top, 0px);
+  transform: translate(-50%, -112%);
+  transition: transform 2.1s cubic-bezier(0.16, 0.75, 0.2, 1) 0.7s, opacity 1.3s ease 0.7s;
+}
+
+.hades-reveal-bottom {
+  bottom: env(safe-area-inset-bottom, 0px);
+  height: min(47dvh, 560px);
+  object-fit: contain;
+  transform: translate(-50%, 112%);
+  transition: transform 2.1s cubic-bezier(0.16, 0.75, 0.2, 1) 0.85s, opacity 1.3s ease 0.85s;
+}
+
+.hades-page.is-expanded .hades-reveal-top {
+  opacity: 1;
+  transform: translate(-50%, -3%);
+}
+
+.hades-page.is-expanded .hades-reveal-bottom {
+  opacity: 1;
+  transform: translate(-50%, 4%);
+}
+
+@media (min-width: 480px) {
+  .hades-riddle-copy {
+    font-size: 16px;
+    line-height: 1.72;
+  }
+
+  .hades-final-title.is-expanded {
+    font-size: 96px;
+  }
+}
+
+@media (max-width: 420px) {
+  .hades-riddle-copy {
+    font-size: 13px;
+    line-height: 1.58;
+    width: 70%;
+  }
+}
+
+@media (min-width: 800px) {
+  .hades-riddle-copy {
+    font-size: 18px;
+  }
+
+  .hades-final-title.is-expanded {
+    font-size: 132px;
+  }
+}
+
+@media (max-height: 640px) {
+  .hades-riddle {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 58px);
+    padding-top: calc(env(safe-area-inset-top, 0px) + 54px);
+  }
+
+  .hades-riddle-copy {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .hades-riddle-copy p {
+    margin-bottom: 5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hades-page *,
+  .hades-page *::before {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+}
+
 .form-grid {
   display: flex;
   flex-direction: column;

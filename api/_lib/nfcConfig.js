@@ -1,6 +1,6 @@
 // NFC hunt configuration.
-// Replace the placeholder URLs once the final links are ready, or set them in
-// Vercel as NFC_TAG_1_URL ... NFC_TAG_5_URL and NFC_FINAL_URL.
+// The five tag destinations can be overridden in Vercel as NFC_TAG_1_URL ...
+// NFC_TAG_5_URL. The completed route is the built-in Hades reveal.
 
 export const NFC_TAGS = {
   1: {
@@ -27,9 +27,9 @@ export const NFC_TAGS = {
 
 export const NFC_REQUIRED_TAG_COUNT = Object.keys(NFC_TAGS).length;
 
-// If empty, a team that had already completed all 5 tags gets this final URL
-// from any later NFC scan. Set NFC_FINAL_TRIGGER_TAG=1 if only tag 1 should do it.
-export const NFC_FINAL_URL = process.env.NFC_FINAL_URL || 'https://example.com/final-point';
+// A team that had already completed all 5 tags reaches the Hades reveal from
+// its next scan. Set NFC_FINAL_TRIGGER_TAG=1 if only tag 1 should do it.
+export const NFC_FINAL_URL = '/hades';
 export const NFC_FINAL_TRIGGER_TAG = process.env.NFC_FINAL_TRIGGER_TAG || '';
 
 export function normalizeNfcTeam(value) {
